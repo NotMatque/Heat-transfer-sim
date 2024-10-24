@@ -1,5 +1,66 @@
 #include "grid.h"
 
+
+Matrix::Matrix(uint32_t const n) {
+    this->size = n;
+    matrix = new double*[n];
+    invMatrix = new double*[n];
+    for (uint32_t i = 0; i < n; i++) {
+        matrix[i] = new double[n];
+        invMatrix[i] = new double[n];
+    }
+}
+Matrix::~Matrix() {
+    for(uint32_t i = 0; i < size; i++) {
+        delete[] matrix[i];
+        delete[] invMatrix[i];
+    }
+    delete[] matrix;
+    delete[] invMatrix;
+}
+double Matrix::det() const {
+    if (size == 1) {
+        return matrix[0][0];
+    }
+    if (size == 2) {
+        return matrix[0][0] * matrix[1][1] - matrix[0][1] * matrix[1][0];
+    }
+    // KOD NIE TESTOWANY!
+    double det = 0;
+    for (int k = 0; k < size; ++k) {
+        Matrix subMatrix(size - 1);
+        for (int i = 1; i < size; ++i) {
+            int subCol = 0;
+            for (int j = 0; j < size; ++j) {
+                if (j != k)
+                    subMatrix.matrix[i - 1][subCol++] = matrix[i][j];
+            }
+        }
+        det += matrix[0][k] * subMatrix.det() * pow(-1, k);
+    }
+    return det;
+}
+void Matrix::inverse() {
+    if(det() != 0 && size == 2) {
+        double temp = 1. / (matrix[0][0] * matrix[1][1] - matrix[0][1] * matrix[1][0]);
+        invMatrix[0][0] = matrix[1][1] * temp;
+        invMatrix[0][1] = -matrix[0][1] * temp;
+        invMatrix[1][0] = -matrix[1][0] * temp;
+        invMatrix[1][1] = matrix[0][0] * temp;
+    }
+}
+std::ostream & operator<<(std::ostream &os, const Matrix &n) {
+    os << "Matrix:" << std::endl;
+    for(uint32_t i = 0; i < n.size; i++) {
+        for(uint32_t j = 0; j < n.size; j++) {
+            os << n.matrix[i][j] << " ";
+        }
+        os << std::endl;
+    }
+    return os;
+}
+
+
 Node::Node() {
     id = 0;
     x = 0.0;
@@ -15,8 +76,43 @@ std::ostream& operator<<(std::ostream& os, const Node& n){
     return os;
 }
 
+Element::Element() {
+    id = 0;
+    jac = new Matrix[4] { Matrix(2), Matrix(2), Matrix(2), Matrix(2)};
+    for(int i = 0; i < N_NODES_PER_ELEMENT; i++) {
+        nodes[i] = nullptr;
+    }
+}
 Element::~Element() {
+    delete[] jac;
     delete[] nodes;
+}
+void Element::calculateJacobeans() const {
+    // Liczenie macierzy jakobiego dla pc1
+    double ksi = -1./sqrt(3.);
+    double etha = -1./sqrt(3.);
+    jac[0].matrix[0][0] = dN1_dKsi(etha) * nodes[0]->x + dN2_dKsi(etha) * nodes[1]->x + dN3_dKsi(etha) * nodes[2]->x + dN4_dKsi(etha) * nodes[3]->x;
+    jac[0].matrix[0][1] = dN1_dKsi(etha) * nodes[0]->y + dN2_dKsi(etha) * nodes[1]->y + dN3_dKsi(etha) * nodes[2]->y + dN4_dKsi(etha) * nodes[3]->y;
+    jac[0].matrix[1][0] = dN1_dEtha(ksi) * nodes[0]->x + dN2_dEtha(ksi) * nodes[1]->x + dN3_dEtha(ksi) * nodes[2]->x + dN4_dEtha(ksi) * nodes[3]->x;
+    jac[0].matrix[1][1] = dN1_dEtha(ksi) * nodes[0]->y + dN2_dEtha(ksi) * nodes[1]->y + dN3_dEtha(ksi) * nodes[2]->y + dN4_dEtha(ksi) * nodes[3]->y;
+    // Liczenie macierzy jakobiego dla pc2
+    ksi = -ksi;
+    jac[1].matrix[0][0] = dN1_dKsi(etha) * nodes[0]->x + dN2_dKsi(etha) * nodes[1]->x + dN3_dKsi(etha) * nodes[2]->x + dN4_dKsi(etha) * nodes[3]->x;
+    jac[1].matrix[0][1] = dN1_dKsi(etha) * nodes[0]->y + dN2_dKsi(etha) * nodes[1]->y + dN3_dKsi(etha) * nodes[2]->y + dN4_dKsi(etha) * nodes[3]->y;
+    jac[1].matrix[1][0] = dN1_dEtha(ksi) * nodes[0]->x + dN2_dEtha(ksi) * nodes[1]->x + dN3_dEtha(ksi) * nodes[2]->x + dN4_dEtha(ksi) * nodes[3]->x;
+    jac[1].matrix[1][1] = dN1_dEtha(ksi) * nodes[0]->y + dN2_dEtha(ksi) * nodes[1]->y + dN3_dEtha(ksi) * nodes[2]->y + dN4_dEtha(ksi) * nodes[3]->y;
+    // Liczenie macierzy jakobiego dla pc3
+    etha = -etha;
+    jac[2].matrix[0][0] = dN1_dKsi(etha) * nodes[0]->x + dN2_dKsi(etha) * nodes[1]->x + dN3_dKsi(etha) * nodes[2]->x + dN4_dKsi(etha) * nodes[3]->x;
+    jac[2].matrix[0][1] = dN1_dKsi(etha) * nodes[0]->y + dN2_dKsi(etha) * nodes[1]->y + dN3_dKsi(etha) * nodes[2]->y + dN4_dKsi(etha) * nodes[3]->y;
+    jac[2].matrix[1][0] = dN1_dEtha(ksi) * nodes[0]->x + dN2_dEtha(ksi) * nodes[1]->x + dN3_dEtha(ksi) * nodes[2]->x + dN4_dEtha(ksi) * nodes[3]->x;
+    jac[2].matrix[1][1] = dN1_dEtha(ksi) * nodes[0]->y + dN2_dEtha(ksi) * nodes[1]->y + dN3_dEtha(ksi) * nodes[2]->y + dN4_dEtha(ksi) * nodes[3]->y;
+    // Liczenie macierzu jakobiego dla pc4
+    ksi = -ksi;
+    jac[3].matrix[0][0] = dN1_dKsi(etha) * nodes[0]->x + dN2_dKsi(etha) * nodes[1]->x + dN3_dKsi(etha) * nodes[2]->x + dN4_dKsi(etha) * nodes[3]->x;
+    jac[3].matrix[0][1] = dN1_dKsi(etha) * nodes[0]->y + dN2_dKsi(etha) * nodes[1]->y + dN3_dKsi(etha) * nodes[2]->y + dN4_dKsi(etha) * nodes[3]->y;
+    jac[3].matrix[1][0] = dN1_dEtha(ksi) * nodes[0]->x + dN2_dEtha(ksi) * nodes[1]->x + dN3_dEtha(ksi) * nodes[2]->x + dN4_dEtha(ksi) * nodes[3]->x;
+    jac[3].matrix[1][1] = dN1_dEtha(ksi) * nodes[0]->y + dN2_dEtha(ksi) * nodes[1]->y + dN3_dEtha(ksi) * nodes[2]->y + dN4_dEtha(ksi) * nodes[3]->y;
 }
 std::ostream& operator<<(std::ostream& os, const Element& e) {
     os << e.id << "\n";
@@ -42,7 +138,7 @@ Grid::~Grid() {
     delete[] nodes;
     delete[] elems;
 }
-void Grid::createGrid() const { // BARDZO BRZYDKIE ROZWIĄZANIE!!!!!!!!!!!!!!!!!!!
+void Grid::generateGrid() const { // BARDZO BRZYDKIE ROZWIĄZANIE!!!!!!!!!!!!!!!!!!!
     // Creating nodes
     uint32_t h = 0, w = 0;
     for(uint32_t i = 0; i < nNodes; i++) {
@@ -61,9 +157,17 @@ void Grid::createGrid() const { // BARDZO BRZYDKIE ROZWIĄZANIE!!!!!!!!!!!!!!!!!
         elems[i].nodes[1] = &nodes[i + 1];
         elems[i].nodes[2] = &nodes[i + height];
         elems[i].nodes[3] = &nodes[i + 1 + height];
+        elems[i].calculateJacobeans();
     }
 }
 
+void GlobalData::checkData(std::fstream* file, std::string const curr, const std::string expected) {
+    if(curr != expected) {
+        std::cerr << "ERROR:\nExpected: " << expected << "\nFound: " << curr << std::endl;
+        file->close();
+        exit(1);
+    }
+}
 GlobalData::GlobalData() {
     simTime = 0.0;
     simStepTime = 0.0;
@@ -79,29 +183,51 @@ GlobalData::GlobalData() {
     nElems = 0;
     grid = nullptr;
 }
-// Wczytuje dane z pliku
-void GlobalData::getData(const std::string &path) {
+// Wczytuje dane z pliku dane (bez węzłów)
+void GlobalData::getOnlyData(const std::string &path) {
     std::fstream file;
     file.open(path);
     if (!file.is_open()) {
-        std::cerr << "ERROR: Could not open file " << path << std::endl;
-        file.close();
-        exit(1);
+
     }
 
     std::string ignoreMe;
-    file >> ignoreMe >> simTime; //SimulationTime
-    file >> ignoreMe >> simStepTime; //SimulationStepTime
-    file >> ignoreMe >> conductivity; //Conductivity
-    file >> ignoreMe >> alpha; //Alfa
-    file >> ignoreMe >> tot; //Tot
-    file >> ignoreMe >> initTemp; //InitialTemp
-    file >> ignoreMe >> density; //Density
-    file >> ignoreMe >> specificHeat; //SpecificHeat
-    file >> ignoreMe >> nNodes;
-    file >> ignoreMe >> nElems;
-    file >> ignoreMe >> gridHeight;
-    file >> ignoreMe >> gridWidth;
+    file >> ignoreMe;
+    checkData(&file, ignoreMe, "SimulationTime");
+    file >> simTime; //SimulationTime
+    file >> ignoreMe;
+    checkData(&file, ignoreMe, "SimulationStepTime");
+    file >> simStepTime; //SimulationStepTime
+    file >> ignoreMe;
+    checkData(&file, ignoreMe, "Conductivity");
+    file >> conductivity; //Conductivity
+    file >> ignoreMe;
+    checkData(&file, ignoreMe, "Alfa");
+    file  >> alpha; //Alfa
+    file >> ignoreMe;
+    checkData(&file, ignoreMe, "Tot");
+    file  >> tot; //Tot
+    file >> ignoreMe;
+    checkData(&file, ignoreMe, "InitialTemp");
+    file  >> initTemp; //InitialTemp
+    file >> ignoreMe;
+    checkData(&file, ignoreMe, "Density");
+    file  >> density; //Density
+    file >> ignoreMe;
+    checkData(&file, ignoreMe, "SpecificHeat");
+    file  >> specificHeat; //SpecificHeat
+    file >> ignoreMe;
+    checkData(&file, ignoreMe, "NodesNumber");
+    file  >> nNodes;
+    file >> ignoreMe;
+    checkData(&file, ignoreMe, "ElementsNumber");
+    file  >> nElems;
+    file >> ignoreMe;
+    checkData(&file, ignoreMe, "GridHeight");
+    file  >> gridHeight;
+    file >> ignoreMe;
+    checkData(&file, ignoreMe, "GridWidth");
+    file  >> gridWidth;
 
     file.close();
 }
@@ -123,7 +249,7 @@ void GlobalData::printData() const {
 // Tworzy siatkę MES
 void GlobalData::createGrid() {
     grid = new Grid(nNodes, nElems, gridHeight, gridWidth);
-    grid->createGrid();
+    grid->generateGrid();
 }
 // Wypisuje koordynaty wszystkich węzłów siatki MES
 void GlobalData::printGridNodes() const{

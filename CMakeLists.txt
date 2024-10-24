@@ -5,4 +5,6 @@ set(CMAKE_CXX_STANDARD 20)
 
 add_executable(untitled main.cpp
         grid.cpp
-        grid.h)
+        grid.h
+        gauss.cpp
+        gauss.h)
