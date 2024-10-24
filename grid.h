@@ -124,6 +124,7 @@ class GlobalData {
 public:
     GlobalData();
     void getOnlyData(const std::string &path);
+    void getAllData(const std::string &path);
     void printData() const;
     void createGrid();
     void printGridNodes() const;

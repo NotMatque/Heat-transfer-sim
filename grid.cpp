@@ -188,7 +188,9 @@ void GlobalData::getOnlyData(const std::string &path) {
     std::fstream file;
     file.open(path);
     if (!file.is_open()) {
-
+        std::cerr << "ERROR: Could not open file " << path << std::endl;
+        file.close();
+        exit(1);
     }
 
     std::string ignoreMe;
@@ -228,6 +230,69 @@ void GlobalData::getOnlyData(const std::string &path) {
     file >> ignoreMe;
     checkData(&file, ignoreMe, "GridWidth");
     file  >> gridWidth;
+
+    file.close();
+}
+// Wczytuje wszystkie dane z pliku
+void GlobalData::getAllData(const std::string &path) {
+    std::fstream file;
+    file.open(path);
+    if (!file.is_open()) {
+        std::cerr << "ERROR: Could not open file " << path << std::endl;
+        file.close();
+        exit(1);
+    }
+
+    std::string ignoreMe;
+    file >> ignoreMe;
+    checkData(&file, ignoreMe, "SimulationTime");
+    file >> simTime; //SimulationTime
+    file >> ignoreMe;
+    checkData(&file, ignoreMe, "SimulationStepTime");
+    file >> simStepTime; //SimulationStepTime
+    file >> ignoreMe;
+    checkData(&file, ignoreMe, "Conductivity");
+    file >> conductivity; //Conductivity
+    file >> ignoreMe;
+    checkData(&file, ignoreMe, "Alfa");
+    file  >> alpha; //Alfa
+    file >> ignoreMe;
+    checkData(&file, ignoreMe, "Tot");
+    file  >> tot; //Tot
+    file >> ignoreMe;
+    checkData(&file, ignoreMe, "InitialTemp");
+    file  >> initTemp; //InitialTemp
+    file >> ignoreMe;
+    checkData(&file, ignoreMe, "Density");
+    file  >> density; //Density
+    file >> ignoreMe;
+    checkData(&file, ignoreMe, "SpecificHeat");
+    file  >> specificHeat; //SpecificHeat
+    file >> ignoreMe;
+    checkData(&file, ignoreMe, "NodesNumber");
+    file  >> nNodes;
+    file >> ignoreMe;
+    checkData(&file, ignoreMe, "ElementsNumber");
+    file  >> nElems;
+    file >> ignoreMe;
+    checkData(&file, ignoreMe, "GridHeight");
+    file  >> gridHeight;
+    file >> ignoreMe;
+    checkData(&file, ignoreMe, "GridWidth");
+    file  >> gridWidth;
+
+    // Wczytywanie węzłów
+    file >> ignoreMe;
+    checkData(&file, ignoreMe, "*Node");
+    for(uint32_t i = 0; i < nNodes; i++) {
+        file >> ignoreMe;
+        std::string tempX, tempY;
+        file >> tempX;
+        tempX.pop_back();
+        grid->nodes[i].x = stod(tempX);
+        file >> tempY;
+        grid->nodes[i].y = stod(tempY);
+    }
 
     file.close();
 }
