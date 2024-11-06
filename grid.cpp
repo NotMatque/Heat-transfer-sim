@@ -1,64 +1,6 @@
 #include "grid.h"
 
 
-Matrix::Matrix(uint32_t const n) {
-    this->size = n;
-    matrix = new double*[n];
-    invMatrix = new double*[n];
-    for (uint32_t i = 0; i < n; i++) {
-        matrix[i] = new double[n];
-        invMatrix[i] = new double[n];
-    }
-}
-Matrix::~Matrix() {
-    for(uint32_t i = 0; i < size; i++) {
-        delete[] matrix[i];
-        delete[] invMatrix[i];
-    }
-    delete[] matrix;
-    delete[] invMatrix;
-}
-double Matrix::det() const {
-    if (size == 1) {
-        return matrix[0][0];
-    }
-    if (size == 2) {
-        return matrix[0][0] * matrix[1][1] - matrix[0][1] * matrix[1][0];
-    }
-    // KOD NIE TESTOWANY!
-    double det = 0;
-    for (int k = 0; k < size; ++k) {
-        Matrix subMatrix(size - 1);
-        for (int i = 1; i < size; ++i) {
-            int subCol = 0;
-            for (int j = 0; j < size; ++j) {
-                if (j != k)
-                    subMatrix.matrix[i - 1][subCol++] = matrix[i][j];
-            }
-        }
-        det += matrix[0][k] * subMatrix.det() * pow(-1, k);
-    }
-    return det;
-}
-void Matrix::inverse() {
-    if(det() != 0 && size == 2) {
-        double temp = 1. / (matrix[0][0] * matrix[1][1] - matrix[0][1] * matrix[1][0]);
-        invMatrix[0][0] = matrix[1][1] * temp;
-        invMatrix[0][1] = -matrix[0][1] * temp;
-        invMatrix[1][0] = -matrix[1][0] * temp;
-        invMatrix[1][1] = matrix[0][0] * temp;
-    }
-}
-std::ostream & operator<<(std::ostream &os, const Matrix &n) {
-    os << "Matrix:" << std::endl;
-    for(uint32_t i = 0; i < n.size; i++) {
-        for(uint32_t j = 0; j < n.size; j++) {
-            os << n.matrix[i][j] << " ";
-        }
-        os << std::endl;
-    }
-    return os;
-}
 
 
 Node::Node() {
@@ -78,7 +20,6 @@ std::ostream& operator<<(std::ostream& os, const Node& n){
 
 Element::Element() {
     id = 0;
-    jac = new Matrix[4] { Matrix(2), Matrix(2), Matrix(2), Matrix(2)};
     for(int i = 0; i < N_NODES_PER_ELEMENT; i++) {
         nodes[i] = nullptr;
     }
@@ -87,32 +28,87 @@ Element::~Element() {
     delete[] jac;
     delete[] nodes;
 }
+void Element::setNIntergPoints(unsigned int nIntegrPoints) {
+    if(nIntegrPoints != 2 && nIntegrPoints != 3) {
+        std::cerr << "ERROR!\nWrong number of integration Points\n" << std::endl;
+        exit(1);
+    }
+    this->nIntergPoints = nIntegrPoints;
+    jac = new Matrix[nIntegrPoints];
+}
 void Element::calculateJacobeans() const {
-    // Liczenie macierzy jakobiego dla pc1
-    double ksi = -1./sqrt(3.);
-    double etha = -1./sqrt(3.);
-    jac[0].matrix[0][0] = dN1_dKsi(etha) * nodes[0]->x + dN2_dKsi(etha) * nodes[1]->x + dN3_dKsi(etha) * nodes[2]->x + dN4_dKsi(etha) * nodes[3]->x;
-    jac[0].matrix[0][1] = dN1_dKsi(etha) * nodes[0]->y + dN2_dKsi(etha) * nodes[1]->y + dN3_dKsi(etha) * nodes[2]->y + dN4_dKsi(etha) * nodes[3]->y;
-    jac[0].matrix[1][0] = dN1_dEtha(ksi) * nodes[0]->x + dN2_dEtha(ksi) * nodes[1]->x + dN3_dEtha(ksi) * nodes[2]->x + dN4_dEtha(ksi) * nodes[3]->x;
-    jac[0].matrix[1][1] = dN1_dEtha(ksi) * nodes[0]->y + dN2_dEtha(ksi) * nodes[1]->y + dN3_dEtha(ksi) * nodes[2]->y + dN4_dEtha(ksi) * nodes[3]->y;
-    // Liczenie macierzy jakobiego dla pc2
-    ksi = -ksi;
-    jac[1].matrix[0][0] = dN1_dKsi(etha) * nodes[0]->x + dN2_dKsi(etha) * nodes[1]->x + dN3_dKsi(etha) * nodes[2]->x + dN4_dKsi(etha) * nodes[3]->x;
-    jac[1].matrix[0][1] = dN1_dKsi(etha) * nodes[0]->y + dN2_dKsi(etha) * nodes[1]->y + dN3_dKsi(etha) * nodes[2]->y + dN4_dKsi(etha) * nodes[3]->y;
-    jac[1].matrix[1][0] = dN1_dEtha(ksi) * nodes[0]->x + dN2_dEtha(ksi) * nodes[1]->x + dN3_dEtha(ksi) * nodes[2]->x + dN4_dEtha(ksi) * nodes[3]->x;
-    jac[1].matrix[1][1] = dN1_dEtha(ksi) * nodes[0]->y + dN2_dEtha(ksi) * nodes[1]->y + dN3_dEtha(ksi) * nodes[2]->y + dN4_dEtha(ksi) * nodes[3]->y;
-    // Liczenie macierzy jakobiego dla pc3
-    etha = -etha;
-    jac[2].matrix[0][0] = dN1_dKsi(etha) * nodes[0]->x + dN2_dKsi(etha) * nodes[1]->x + dN3_dKsi(etha) * nodes[2]->x + dN4_dKsi(etha) * nodes[3]->x;
-    jac[2].matrix[0][1] = dN1_dKsi(etha) * nodes[0]->y + dN2_dKsi(etha) * nodes[1]->y + dN3_dKsi(etha) * nodes[2]->y + dN4_dKsi(etha) * nodes[3]->y;
-    jac[2].matrix[1][0] = dN1_dEtha(ksi) * nodes[0]->x + dN2_dEtha(ksi) * nodes[1]->x + dN3_dEtha(ksi) * nodes[2]->x + dN4_dEtha(ksi) * nodes[3]->x;
-    jac[2].matrix[1][1] = dN1_dEtha(ksi) * nodes[0]->y + dN2_dEtha(ksi) * nodes[1]->y + dN3_dEtha(ksi) * nodes[2]->y + dN4_dEtha(ksi) * nodes[3]->y;
-    // Liczenie macierzu jakobiego dla pc4
-    ksi = -ksi;
-    jac[3].matrix[0][0] = dN1_dKsi(etha) * nodes[0]->x + dN2_dKsi(etha) * nodes[1]->x + dN3_dKsi(etha) * nodes[2]->x + dN4_dKsi(etha) * nodes[3]->x;
-    jac[3].matrix[0][1] = dN1_dKsi(etha) * nodes[0]->y + dN2_dKsi(etha) * nodes[1]->y + dN3_dKsi(etha) * nodes[2]->y + dN4_dKsi(etha) * nodes[3]->y;
-    jac[3].matrix[1][0] = dN1_dEtha(ksi) * nodes[0]->x + dN2_dEtha(ksi) * nodes[1]->x + dN3_dEtha(ksi) * nodes[2]->x + dN4_dEtha(ksi) * nodes[3]->x;
-    jac[3].matrix[1][1] = dN1_dEtha(ksi) * nodes[0]->y + dN2_dEtha(ksi) * nodes[1]->y + dN3_dEtha(ksi) * nodes[2]->y + dN4_dEtha(ksi) * nodes[3]->y;
+    if(nIntergPoints == 2) {
+        // Liczenie macierzy jakobiego dla pc1
+        for(unsigned int i = 0; i < 4; i++) {
+            double ksi, etha;
+            switch(i) {
+                case 0:
+                    ksi = -0.57735;
+                    etha = -0.57735;
+                    break;
+                case 1:
+                    ksi = 0.57735;
+                    etha =-0.57735;
+                case 2:
+                    ksi = 0.57735;
+                    etha = 0.57735;
+                case 3:
+                    ksi = -0.57735;
+                    etha = 0.57735;
+            }
+            jac[i].matrix[0][0] = dN1_dKsi(etha) * nodes[0]->x + dN2_dKsi(etha) * nodes[1]->x + dN3_dKsi(etha) * nodes[2]->x + dN4_dKsi(etha) * nodes[3]->x;
+            jac[i].matrix[0][1] = dN1_dKsi(etha) * nodes[0]->y + dN2_dKsi(etha) * nodes[1]->y + dN3_dKsi(etha) * nodes[2]->y + dN4_dKsi(etha) * nodes[3]->y;
+            jac[i].matrix[1][0] = dN1_dEtha(ksi) * nodes[0]->x + dN2_dEtha(ksi) * nodes[1]->x + dN3_dEtha(ksi) * nodes[2]->x + dN4_dEtha(ksi) * nodes[3]->x;
+            jac[i].matrix[1][1] = dN1_dEtha(ksi) * nodes[0]->y + dN2_dEtha(ksi) * nodes[1]->y + dN3_dEtha(ksi) * nodes[2]->y + dN4_dEtha(ksi) * nodes[3]->y;
+        }
+    }
+    if(nIntergPoints == 3) {
+        for(unsigned int i = 0; i < 9; i++) {
+            double ksi, etha;
+            switch(i) {
+                case 0:
+                    ksi = -0.77459;
+                    etha = -0.77459;
+                    break;
+                case 1:
+                    ksi = -0.77459;
+                    etha = 0.;
+                    break;
+                case 2:
+                    ksi = -0.77459;
+                    etha = 0.77459;
+                    break;
+                case 3:
+                    ksi = 0.;
+                    etha = -0.77459;
+                    break;
+                case 4:
+                    ksi = 0.;
+                    etha = 0.;
+                    break;
+                case 5:
+                    ksi = 0.;
+                    etha = 0.77459;
+                    break;
+                case 6:
+                    ksi = 0.77459;
+                    etha = -0.77459;
+                    break;
+                case 7:
+                    ksi = 0.77459;
+                    etha = 0.;
+                    break;
+                case 8:
+                    ksi = 0.77459;
+                    etha = 0.77459;
+                    break;
+            }
+            jac[i].matrix[0][0] = dN1_dKsi(etha) * nodes[0]->x + dN2_dKsi(etha) * nodes[1]->x + dN3_dKsi(etha) * nodes[2]->x + dN4_dKsi(etha) * nodes[3]->x;
+            jac[i].matrix[0][1] = dN1_dKsi(etha) * nodes[0]->y + dN2_dKsi(etha) * nodes[1]->y + dN3_dKsi(etha) * nodes[2]->y + dN4_dKsi(etha) * nodes[3]->y;
+            jac[i].matrix[1][0] = dN1_dEtha(ksi) * nodes[0]->x + dN2_dEtha(ksi) * nodes[1]->x + dN3_dEtha(ksi) * nodes[2]->x + dN4_dEtha(ksi) * nodes[3]->x;
+            jac[i].matrix[1][1] = dN1_dEtha(ksi) * nodes[0]->y + dN2_dEtha(ksi) * nodes[1]->y + dN3_dEtha(ksi) * nodes[2]->y + dN4_dEtha(ksi) * nodes[3]->y;
+        }
+    }
 }
 std::ostream& operator<<(std::ostream& os, const Element& e) {
     os << e.id << "\n";
@@ -163,7 +159,7 @@ void Grid::generateGrid() const { // BARDZO BRZYDKIE ROZWIĄZANIE!!!!!!!!!!!!!!!
 
 void GlobalData::checkData(std::fstream* file, std::string const curr, const std::string expected) {
     if(curr != expected) {
-        std::cerr << "ERROR:\nExpected: " << expected << "\nFound: " << curr << std::endl;
+        std::cerr << "ERROR:\nReading from file\nExpected: " << expected << "\nFound: " << curr << std::endl;
         file->close();
         exit(1);
     }
@@ -292,6 +288,27 @@ void GlobalData::getAllData(const std::string &path) {
         grid->nodes[i].x = stod(tempX);
         file >> tempY;
         grid->nodes[i].y = stod(tempY);
+    }
+
+    file >> ignoreMe;
+    checkData(&file, ignoreMe, "*Element,");
+    file >> ignoreMe;
+    checkData(&file, ignoreMe, "*type=DC2D4");
+    for(uint32_t i = 0; i < nElems; i++) {
+        file >> ignoreMe;
+        ignoreMe.pop_back();
+        unsigned int tempIElem = stoi(ignoreMe);
+        file >> ignoreMe;
+        ignoreMe.pop_back();
+        grid->elems[tempIElem].nodes[0] = &grid->nodes[stoi(ignoreMe)];
+        file >> ignoreMe;
+        ignoreMe.pop_back();
+        grid->elems[tempIElem].nodes[1] = &grid->nodes[stoi(ignoreMe)];
+        file >> ignoreMe;
+        ignoreMe.pop_back();
+        grid->elems[tempIElem].nodes[2] = &grid->nodes[stoi(ignoreMe)];
+        file >> ignoreMe;
+        grid->elems[tempIElem].nodes[3] = &grid->nodes[stoi(ignoreMe)];
     }
 
     file.close();

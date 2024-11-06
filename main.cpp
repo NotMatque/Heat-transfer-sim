@@ -3,38 +3,23 @@
 #include <cmath>
 
 #include "grid.h"
-#include "gauss.h"
-
-
+#include "quadGauss.h"
+#include "matrix.h"
 
 int main() {
-    Node* nodes = new Node[4];
-    nodes[0].x = 0.;
-    nodes[0].y = 0.;
+    Element el;
+    el.nodes[0] = new Node(0, 0, 0);
+    el.nodes[1] = new Node(0, 4, 0);
+    el.nodes[2] = new Node(0, 4, 4);
+    el.nodes[3] = new Node(0, 0, 4);
 
-    nodes[1].x = 4.;
-    nodes[1].y = 0.;
+    el.setNIntergPoints(2);
 
-    nodes[2].x = 4.;
-    nodes[2].y = 4.;
+    el.calculateJacobeans();
 
-    nodes[3].x = 0.;
-    nodes[3].y = 4.;
-
-    Element elem;
-    elem.nodes[0] = &nodes[0];
-    elem.nodes[1] = &nodes[1];
-    elem.nodes[2] = &nodes[2];
-    elem.nodes[3] = &nodes[3];
-
-    std::cout << elem << std::endl;
-    std::cout << std::endl;
-
-    elem.calculateJacobeans();
-    std::cout << elem.jac[0] << std::endl;
-    std::cout << elem.jac[1] << std::endl;
-    std::cout << elem.jac[2] << std::endl;
-    std::cout << elem.jac[3] << std::endl;
+    for(int i =0; i < 4; i++)
+        std::cout << el.jac[i] << std::endl;
 
     return 0;
+
 }

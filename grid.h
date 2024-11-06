@@ -1,13 +1,12 @@
 #pragma once
 
-#ifndef GRID_H
-#define GRID_H
-
 #include <iostream>
 #include <cstdint>
 #include <fstream>
 #include <iomanip>
 #include <cmath>
+
+#include "matrix.h"
 
 #define N_NODES_PER_ELEMENT 4
 #define N_INTEGRATION_POINTS 4
@@ -38,25 +37,45 @@ inline double dN4_dEtha(double const ksi) {
     return 0.25 * (1 - ksi);
 }
 
+inline const double dN_dKsi_4[4][4] { //ksi, etha = +/- 1 / sqrt(3)
+    {-0.394338, 0.394338, 0.105662, -0.105662},
+    {-0.394338, 0.394338, 0.105662, -0.105662},
+    {-0.105662, 0.105662, 0.394338, -0.394338},
+    {-0.105662, 0.105662, 0.394338, -0.394338}
+};
+inline const double dN_dEtha_4[4][4] { //ksi, etha = +/- 1 / sqrt(3)
+    {-0.394338, -0.105662, 0.105662, 0.394338},
+    {-0.105662, -0.394338, 0.394338, 0.105662},
+    {-0.394338, -0.105662, 0.105662, 0.394338},
+    {-0.105662, -0.394338, 0.394338, 0.105662}
+};
+inline const double dN_dKsi_9[9][4] {
+    {-0.443649, 0.443649, 0.056351, -0.056351},
+    {-0.25, 0.25, 0.25, -0.25},
+    {-0.056351, 0.056351, 0.443649, -0.443649},
+    {-0.443649, 0.443649, 0.056351, -0.056351},
+    {-0.25, 0.25, 0.25, -0.25},
+    {-0.056351, 0.056351, 0.443649, -0.443649},
+    {-0.443649, 0.443649, 0.056351, -0.056351},
+    {-0.25, 0.25, 0.25, -0.25},
+    {-0.056351, 0.056351, 0.443649, -0.443649}
+};
+inline const double dN_dEtha_9[9][4] {
+    {-0.443649, -0.056351, 0.056351, 0.443649},
+    {-0.443649, -0.056351, 0.056351, 0.443649},
+    {-0.443649, -0.056351, 0.056351, 0.443649},
+    {-0.25, -0.25, 0.25, 0.25},
+    {-0.25, -0.25, 0.25, 0.25},
+    {-0.25, -0.25, 0.25, 0.25},
+    {-0.056351, -0.443649, -0.443649, 0.056351},
+    {-0.056351, -0.443649, -0.443649, 0.056351},
+    {-0.056351, -0.443649, -0.443649, 0.056351}
+};
 
-struct Matrix;
 struct Node;
 struct Element;
 struct Grid;
 class GlobalData;
-
-// Square matrix nxn
-struct Matrix {
-    double** matrix;
-    double** invMatrix;
-    uint32_t size;
-
-    explicit Matrix(uint32_t);
-    ~Matrix();
-    double det() const;
-    void inverse();
-    friend std::ostream& operator<<(std::ostream& os, const Matrix& n);
-};
 
 // Węzeł siatki o określonych koordynatach x, y
 struct Node {
@@ -77,10 +96,12 @@ struct Node {
 struct Element {
     uint32_t id;
     Node *nodes[N_NODES_PER_ELEMENT]; // Tablica ze wskaźnikami na węzły
-    Matrix* jac; // Macierze Jakobiego dla 4 punktów całkowania
+    Matrix* jac; // Macierze Jakobiego dla 2 lub 3 punktów całkowania
+    unsigned int nIntergPoints;
 
     Element();
     ~Element();
+    void setNIntergPoints(unsigned int nIntegrPoints);
     void calculateJacobeans() const;
     friend std::ostream& operator<<(std::ostream& os, const Element& e);
 };
@@ -130,4 +151,3 @@ public:
     void printGridNodes() const;
     void printGridElems() const;
 };
-#endif //GRID_H
