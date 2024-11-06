@@ -20,9 +20,7 @@ std::ostream& operator<<(std::ostream& os, const Node& n){
 
 Element::Element() {
     id = 0;
-    for(int i = 0; i < N_NODES_PER_ELEMENT; i++) {
-        nodes[i] = nullptr;
-    }
+    nodes = new Node*[4];
 }
 Element::~Element() {
     delete[] jac;
@@ -231,7 +229,10 @@ void GlobalData::getOnlyData(const std::string &path) {
 }
 // Wczytuje wszystkie dane z pliku
 void GlobalData::getAllData(const std::string &path) {
+    getOnlyData(path);
+
     std::fstream file;
+    std::string ignoreMe;
     file.open(path);
     if (!file.is_open()) {
         std::cerr << "ERROR: Could not open file " << path << std::endl;
@@ -239,45 +240,11 @@ void GlobalData::getAllData(const std::string &path) {
         exit(1);
     }
 
-    std::string ignoreMe;
-    file >> ignoreMe;
-    checkData(&file, ignoreMe, "SimulationTime");
-    file >> simTime; //SimulationTime
-    file >> ignoreMe;
-    checkData(&file, ignoreMe, "SimulationStepTime");
-    file >> simStepTime; //SimulationStepTime
-    file >> ignoreMe;
-    checkData(&file, ignoreMe, "Conductivity");
-    file >> conductivity; //Conductivity
-    file >> ignoreMe;
-    checkData(&file, ignoreMe, "Alfa");
-    file  >> alpha; //Alfa
-    file >> ignoreMe;
-    checkData(&file, ignoreMe, "Tot");
-    file  >> tot; //Tot
-    file >> ignoreMe;
-    checkData(&file, ignoreMe, "InitialTemp");
-    file  >> initTemp; //InitialTemp
-    file >> ignoreMe;
-    checkData(&file, ignoreMe, "Density");
-    file  >> density; //Density
-    file >> ignoreMe;
-    checkData(&file, ignoreMe, "SpecificHeat");
-    file  >> specificHeat; //SpecificHeat
-    file >> ignoreMe;
-    checkData(&file, ignoreMe, "NodesNumber");
-    file  >> nNodes;
-    file >> ignoreMe;
-    checkData(&file, ignoreMe, "ElementsNumber");
-    file  >> nElems;
-    file >> ignoreMe;
-    checkData(&file, ignoreMe, "GridHeight");
-    file  >> gridHeight;
-    file >> ignoreMe;
-    checkData(&file, ignoreMe, "GridWidth");
-    file  >> gridWidth;
+    for(int i = 0; i < 24; i++)
+        file >> ignoreMe;
 
     // Wczytywanie węzłów
+    grid = new Grid(nNodes, nElems, gridHeight, gridWidth);
     file >> ignoreMe;
     checkData(&file, ignoreMe, "*Node");
     for(uint32_t i = 0; i < nNodes; i++) {
@@ -288,27 +255,27 @@ void GlobalData::getAllData(const std::string &path) {
         grid->nodes[i].x = stod(tempX);
         file >> tempY;
         grid->nodes[i].y = stod(tempY);
+        grid->nodes[i].id = i;
     }
 
     file >> ignoreMe;
     checkData(&file, ignoreMe, "*Element,");
     file >> ignoreMe;
-    checkData(&file, ignoreMe, "*type=DC2D4");
+    checkData(&file, ignoreMe, "type=DC2D4");
     for(uint32_t i = 0; i < nElems; i++) {
-        file >> ignoreMe;
+        file >> ignoreMe; // Nr elementu
+        file >> ignoreMe; // Node nr 1
         ignoreMe.pop_back();
-        unsigned int tempIElem = stoi(ignoreMe);
-        file >> ignoreMe;
+        grid->elems[i].nodes[0] = &grid->nodes[stoi(ignoreMe) - 1];
+        file >> ignoreMe; // Node nr 2
         ignoreMe.pop_back();
-        grid->elems[tempIElem].nodes[0] = &grid->nodes[stoi(ignoreMe)];
-        file >> ignoreMe;
+        grid->elems[i].nodes[1] = &grid->nodes[stoi(ignoreMe) - 1];
+        file >> ignoreMe; // Node nr 3
         ignoreMe.pop_back();
-        grid->elems[tempIElem].nodes[1] = &grid->nodes[stoi(ignoreMe)];
-        file >> ignoreMe;
-        ignoreMe.pop_back();
-        grid->elems[tempIElem].nodes[2] = &grid->nodes[stoi(ignoreMe)];
-        file >> ignoreMe;
-        grid->elems[tempIElem].nodes[3] = &grid->nodes[stoi(ignoreMe)];
+        grid->elems[i].nodes[2] = &grid->nodes[stoi(ignoreMe) - 1];
+        file >> ignoreMe; // Node nr 4
+        grid->elems[i].nodes[3] = &grid->nodes[stoi(ignoreMe) - 1];
+        grid->elems[i].id = i;
     }
 
     file.close();
