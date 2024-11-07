@@ -73,10 +73,6 @@ inline const double dN_dEtha_9[9][4] {
     {-0.056351, -0.443649, -0.443649, 0.056351}
 };
 
-struct Node;
-struct Element;
-struct Grid;
-class GlobalData;
 
 // Węzeł siatki o określonych koordynatach x, y
 struct Node {
@@ -97,7 +93,7 @@ struct Node {
 struct Element {
     uint32_t id;
     Node *nodes[4]; // Tablica ze wskaźnikami na węzły
-    unsigned int nIntergPoints;
+    unsigned int nIntegrPoints;
     Matrix* jac; // Macierze Jakobiego dla 2 lub 3 punktów całkowania
     Matrix hMatrix;
 
