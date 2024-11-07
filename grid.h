@@ -46,8 +46,9 @@ inline const double dN_dKsi_4[4][4] { //ksi, etha = +/- 1 / sqrt(3)
 inline const double dN_dEtha_4[4][4] { //ksi, etha = +/- 1 / sqrt(3)
     {-0.394338, -0.105662, 0.105662, 0.394338},
     {-0.105662, -0.394338, 0.394338, 0.105662},
-    {-0.394338, -0.105662, 0.105662, 0.394338},
-    {-0.105662, -0.394338, 0.394338, 0.105662}
+    {-0.105662, -0.394338, 0.394338, 0.105662},
+    {-0.394338, -0.105662, 0.105662, 0.394338}
+
 };
 inline const double dN_dKsi_9[9][4] {
     {-0.443649, 0.443649, 0.056351, -0.056351},
@@ -95,14 +96,16 @@ struct Node {
 // 1---2
 struct Element {
     uint32_t id;
-    Node **nodes; // Tablica ze wskaźnikami na węzły
-    Matrix* jac; // Macierze Jakobiego dla 2 lub 3 punktów całkowania
+    Node *nodes[4]; // Tablica ze wskaźnikami na węzły
     unsigned int nIntergPoints;
+    Matrix* jac; // Macierze Jakobiego dla 2 lub 3 punktów całkowania
+    Matrix hMatrix;
 
     Element();
     ~Element();
     void setNIntergPoints(unsigned int nIntegrPoints);
     void calculateJacobeans() const;
+    void calculateH(double) const;
     friend std::ostream& operator<<(std::ostream& os, const Element& e);
 };
 

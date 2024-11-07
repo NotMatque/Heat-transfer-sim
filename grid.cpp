@@ -20,7 +20,7 @@ std::ostream& operator<<(std::ostream& os, const Node& n){
 
 Element::Element() {
     id = 0;
-    nodes = new Node*[4];
+    hMatrix = Matrix(4);
 }
 Element::~Element() {
     delete[] jac;
@@ -32,12 +32,14 @@ void Element::setNIntergPoints(unsigned int nIntegrPoints) {
         exit(1);
     }
     this->nIntergPoints = nIntegrPoints;
-    jac = new Matrix[nIntegrPoints];
+    jac = new Matrix[nIntegrPoints * nIntegrPoints];
+    for(int i = 0; i < nIntegrPoints * nIntegrPoints; i++)
+        jac[i] = Matrix(2);
 }
 void Element::calculateJacobeans() const {
     if(nIntergPoints == 2) {
         // Liczenie macierzy jakobiego dla pc1
-        for(unsigned int i = 0; i < 4; i++) {
+        for(unsigned int i = 0; i < nIntergPoints * nIntergPoints; i++) {
             double ksi, etha;
             switch(i) {
                 case 0:
@@ -47,12 +49,15 @@ void Element::calculateJacobeans() const {
                 case 1:
                     ksi = 0.57735;
                     etha =-0.57735;
+                    break;
                 case 2:
                     ksi = 0.57735;
                     etha = 0.57735;
+                    break;
                 case 3:
                     ksi = -0.57735;
                     etha = 0.57735;
+                    break;
             }
             jac[i].matrix[0][0] = dN1_dKsi(etha) * nodes[0]->x + dN2_dKsi(etha) * nodes[1]->x + dN3_dKsi(etha) * nodes[2]->x + dN4_dKsi(etha) * nodes[3]->x;
             jac[i].matrix[0][1] = dN1_dKsi(etha) * nodes[0]->y + dN2_dKsi(etha) * nodes[1]->y + dN3_dKsi(etha) * nodes[2]->y + dN4_dKsi(etha) * nodes[3]->y;
@@ -61,7 +66,7 @@ void Element::calculateJacobeans() const {
         }
     }
     if(nIntergPoints == 3) {
-        for(unsigned int i = 0; i < 9; i++) {
+        for(unsigned int i = 0; i < nIntergPoints * nIntergPoints; i++) {
             double ksi, etha;
             switch(i) {
                 case 0:
@@ -106,6 +111,43 @@ void Element::calculateJacobeans() const {
             jac[i].matrix[1][0] = dN1_dEtha(ksi) * nodes[0]->x + dN2_dEtha(ksi) * nodes[1]->x + dN3_dEtha(ksi) * nodes[2]->x + dN4_dEtha(ksi) * nodes[3]->x;
             jac[i].matrix[1][1] = dN1_dEtha(ksi) * nodes[0]->y + dN2_dEtha(ksi) * nodes[1]->y + dN3_dEtha(ksi) * nodes[2]->y + dN4_dEtha(ksi) * nodes[3]->y;
         }
+    }
+}
+void Element::calculateH(double conductivity) const {
+    calculateJacobeans();
+    for(unsigned int i = 0; i < nIntergPoints * nIntergPoints; i++) {
+        double dN_dx[4]; // Dla tego pc
+        double dN_dy[4];
+
+        // Przemnażamy macierz Jakobiego przez odwrotność Jakobianu
+        double Jacobean = jac[i].det();
+        for(int j = 0; j < 2; j++)
+            for(int k = 0; k < 2; k++)
+                jac[i].matrix[j][k] /= Jacobean;
+
+        // Wyliczamy dNi_dx i dNi_dy dla tego PC
+        for(int j = 0; j < 4; j++) {
+            dN_dx[j] = jac[i].matrix[0][0] * dN_dKsi_4[i][j] + jac[i].matrix[0][1] * dN_dEtha_4[i][j];
+            //std::cout << dN_dx[j] << " ";
+            dN_dy[j] = jac[i].matrix[1][0] * dN_dKsi_4[i][j] + jac[i].matrix[1][1] * dN_dEtha_4[i][j];
+            //std::cout << dN_dy[j] << " ";
+        }
+
+        // Wyznaczamy H_pci
+        Matrix hMatrixIntegrPointI(4);
+        for(int j = 0; j < 4; j++)
+            for(int k = 0; k < 4; k++) {
+                hMatrixIntegrPointI.matrix[j][k] = dN_dx[j] * dN_dx[k] + dN_dy[j] * dN_dy[k];
+                //std:: cout << hMatrixIntegrPointI.matrix[j][k] << " ";
+                hMatrixIntegrPointI.matrix[j][k] *= conductivity;
+                //std:: cout << hMatrixIntegrPointI.matrix[j][k] << " ";
+                hMatrixIntegrPointI.matrix[j][k] *= Jacobean;
+            }
+        std::cout << hMatrixIntegrPointI << std::endl;
+
+        for(int j = 0; j < 4; j++)
+            for(int k = 0; k < 4; k++)
+                hMatrix.matrix[j][k] += hMatrixIntegrPointI.matrix[j][k] * 1 * 1; //?????
     }
 }
 std::ostream& operator<<(std::ostream& os, const Element& e) {
