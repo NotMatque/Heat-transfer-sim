@@ -6,20 +6,21 @@
 #include "quadGauss.h"
 #include "matrix.h"
 
-int main() {
+using namespace std;
+
+void funcTest() {
     Element el;
-    el.nodes[0] = new Node(0, 0, 0);
-    el.nodes[1] = new Node(0, 4, 0);
-    el.nodes[2] = new Node(0, 4, 4);
-    el.nodes[3] = new Node(0, 0, 4);
+    el.nodes[0] = new Node(1, 0.01, -0.01);
+    el.nodes[1] = new Node(2, 0.025, 0);
+    el.nodes[2] = new Node(3, 0.025, 0.025);
+    el.nodes[3] = new Node(4, 0, 0.025);
 
     el.setNIntergPoints(2);
+    el.calculateH(30);
+    std::cout << el.hMatrix << std::endl;
+}
 
-    el.calculateJacobeans();
-
-    for(int i =0; i < 4; i++)
-        std::cout << el.jac[i] << std::endl;
-
+int main() {
+    funcTest();
     return 0;
-
 }

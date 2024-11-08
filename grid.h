@@ -94,8 +94,8 @@ struct Element {
     uint32_t id;
     Node *nodes[4]; // Tablica ze wskaźnikami na węzły
     unsigned int nIntegrPoints;
-    Matrix* jac; // Macierze Jakobiego dla 2 lub 3 punktów całkowania
-    Matrix hMatrix;
+    SquareMatrix* jac; // Macierze Jakobiego dla 2 lub 3 punktów całkowania
+    SquareMatrix hMatrix;
 
     Element();
     ~Element();

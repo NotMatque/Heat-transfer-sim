@@ -4,24 +4,23 @@
 
 #include "matrix.h"
 
-Matrix::Matrix(unsigned int const n) {
+SquareMatrix::SquareMatrix(unsigned int const n) {
     this->size = n;
     matrix = new double*[n];
-    invMatrix = new double*[n];
-    for (unsigned int i = 0; i < n; i++) {
+    for (unsigned int i = 0; i < n; i++)
         matrix[i] = new double[n] {0};
-        invMatrix[i] = new double[n] {0};
-    }
 }
-Matrix::~Matrix() {
-    for(unsigned int i = 0; i < size; i++) {
+SquareMatrix::~SquareMatrix() {
+    for(unsigned int i = 0; i < size; i++)
         delete[] matrix[i];
-        delete[] invMatrix[i];
-    }
     delete[] matrix;
-    delete[] invMatrix;
 }
-double Matrix::det() const {
+
+unsigned int SquareMatrix::getSize() {
+    return size;
+}
+
+double SquareMatrix::det() const {
     if (size == 1) {
         return matrix[0][0];
     }
@@ -31,7 +30,7 @@ double Matrix::det() const {
     // KOD NIE TESTOWANY!
     double det = 0;
     for (int k = 0; k < size; ++k) {
-        Matrix subMatrix(size - 1);
+        SquareMatrix subMatrix(size - 1);
         for (int i = 1; i < size; ++i) {
             int subCol = 0;
             for (int j = 0; j < size; ++j) {
@@ -43,16 +42,59 @@ double Matrix::det() const {
     }
     return det;
 }
-void Matrix::inverse() {
+SquareMatrix SquareMatrix::inverse() const {
     if(det() != 0 && size == 2) {
+        SquareMatrix result(size);
         double temp = 1. / (matrix[0][0] * matrix[1][1] - matrix[0][1] * matrix[1][0]);
-        invMatrix[0][0] = matrix[1][1] * temp;
-        invMatrix[0][1] = -matrix[0][1] * temp;
-        invMatrix[1][0] = -matrix[1][0] * temp;
-        invMatrix[1][1] = matrix[0][0] * temp;
+        result[0][0] = matrix[1][1] * temp;
+        result[0][1] = -matrix[0][1] * temp;
+        result[1][0] = -matrix[1][0] * temp;
+        result[1][1] = matrix[0][0] * temp;
+        return result;
+    }
+    else {
+        std::cerr << "ERROR!\nCan't inverse the matrix!" << std::endl;
+        exit(1);
     }
 }
-std::ostream & operator<<(std::ostream &os, const Matrix &n) {
+
+SquareMatrix SquareMatrix::operator+(const SquareMatrix &n) const {
+    if(size != n.size) {
+        std::cerr << "ERROR!\nCan't add matrices of different sizes!\n" << std::endl;
+        exit(1);
+    }
+    SquareMatrix result(size);
+    for(unsigned int i = 0; i < size; i++)
+        for(unsigned int j = 0; j < size; j++)
+            result.matrix[i][j] = matrix[i][j] + n.matrix[i][j];
+    return result;
+}
+
+SquareMatrix SquareMatrix::operator-(const SquareMatrix &n) const {
+    if(size != n.size) {
+        std::cerr << "ERROR!\nCan't subtract matrices of different sizes!\n" << std::endl;
+        exit(1);
+    }
+    SquareMatrix result(size);
+    for(unsigned int i = 0; i < size; i++)
+        for(unsigned int j = 0; j < size; j++)
+            result.matrix[i][j] = matrix[i][j] - n.matrix[i][j];
+    return result;
+}
+
+SquareMatrix SquareMatrix::operator*(const double& n) const {
+    SquareMatrix result(size);
+    for(unsigned int i = 0; i < size; i++)
+        for(unsigned int j = 0; j < size; j++)
+            result.matrix[i][j] = matrix[i][j] * n;
+    return result;
+}
+
+double * SquareMatrix::operator[](unsigned int i) const {
+    return matrix[i];
+}
+
+std::ostream & operator<<(std::ostream &os, const SquareMatrix &n) {
     os << "Matrix:" << std::endl;
     for(uint32_t i = 0; i < n.size; i++) {
         for(uint32_t j = 0; j < n.size; j++) {

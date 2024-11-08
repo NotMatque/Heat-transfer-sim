@@ -2,26 +2,25 @@
 // Created by Mateusz on 04.11.2024.
 //
 
-#ifndef MATRIX_H
-#define MATRIX_H
+#pragma once
 #include <iostream>
 #include <cmath>
 #include <cstdint>
 
 
 // Square matrix nxn
-struct Matrix {
+class SquareMatrix {
     double** matrix;
-    double** invMatrix;
     unsigned int size;
-
-    Matrix(unsigned int n = 2);
-    ~Matrix();
+public:
+    SquareMatrix(unsigned int n = 2);
+    ~SquareMatrix();
+    unsigned int getSize();
     double det() const;
-    void inverse();
-    friend std::ostream& operator<<(std::ostream& os, const Matrix& n);
+    SquareMatrix inverse() const;
+    friend std::ostream& operator<<(std::ostream& os, const SquareMatrix& n);
+    SquareMatrix operator+(const SquareMatrix& n) const;
+    SquareMatrix operator-(const SquareMatrix& n) const;
+    SquareMatrix operator*(const double& n) const;
+    double* operator[](unsigned int i) const;
 };
-
-
-
-#endif //MATRIX_H
