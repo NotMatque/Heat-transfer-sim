@@ -5,11 +5,11 @@
 
 #include <cstdint>
 
-// Gaussian quadrature for 1 param functions
+// Kwadratura Gaussa dla funkcji o 1 parametrze
 double quadGauss1D(double (*func)(double), double start, double end);
-// Gaussian quadrature for 2 param functions using 2 integration points
+// Kwadratura Gaussa o 2 punktach całkowania dla funkcji o 2 parametrach
 double quadGauss2(double (*func)(double, double), double xStart, double xEnd, double yStart, double yEnd);
-// Gaussian quadrature for 2 param functions using 3 integration points
+// Kwadratura Gaussa o 3 punktach całkowania dla funkcji o 2 parametrach
 double quadGauss3(double (*func)(double, double), double xStart, double xEnd, double yStart, double yEnd);
 
 #endif //GAUSS_H

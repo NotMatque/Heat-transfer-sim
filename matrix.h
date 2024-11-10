@@ -15,9 +15,9 @@ class SquareMatrix {
 public:
     SquareMatrix(unsigned int n = 2);
     ~SquareMatrix();
-    unsigned int getSize();
-    double det() const;
-    SquareMatrix inverse() const;
+    unsigned int getSize(); // Zwraca wielkość macierzy
+    double det() const; // Zwraca wyznacznik macierzy
+    SquareMatrix inverse() const; // Zwraca macierz odwrotną
     friend std::ostream& operator<<(std::ostream& os, const SquareMatrix& n);
     SquareMatrix operator+(const SquareMatrix& n) const;
     SquareMatrix operator-(const SquareMatrix& n) const;
