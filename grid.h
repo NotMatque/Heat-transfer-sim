@@ -11,78 +11,28 @@
 #define N_NODES_PER_ELEMENT 4
 #define N_INTEGRATION_POINTS 4
 
-inline double dN1_dKsi(double const etha) {
-    return -0.25 * (1 - etha);
-}
-inline double dN2_dKsi(double const etha) {
-    return 0.25 * (1 - etha);
-}
-inline double dN3_dKsi(double const etha) {
-    return 0.25 * (1 + etha);
-}
-inline double dN4_dKsi(double const etha) {
-    return -0.25 * (1 + etha);
-}
+inline double dN1_dKsi(double const etha) { return -0.25 * (1 - etha);}
+inline double dN2_dKsi(double const etha) { return 0.25 * (1 - etha);}
+inline double dN3_dKsi(double const etha) { return 0.25 * (1 + etha);}
+inline double dN4_dKsi(double const etha) { return -0.25 * (1 + etha);}
+inline double (*dN_dKsi[4])(double) {dN1_dKsi, dN2_dKsi, dN3_dKsi, dN4_dKsi};
 
-inline double dN1_dEtha(double const ksi) {
-    return -0.25 * (1 - ksi);
-}
-inline double dN2_dEtha(double const ksi) {
-    return -0.25 * (1 + ksi);
-}
-inline double dN3_dEtha(double const ksi) {
-    return 0.25 * (1 + ksi);
-}
-inline double dN4_dEtha(double const ksi) {
-    return 0.25 * (1 - ksi);
-}
-
-inline const double dN_dKsi_4[4][4] { //ksi, etha = +/- 1 / sqrt(3)
-    {-0.394338, 0.394338, 0.105662, -0.105662},
-    {-0.394338, 0.394338, 0.105662, -0.105662},
-    {-0.105662, 0.105662, 0.394338, -0.394338},
-    {-0.105662, 0.105662, 0.394338, -0.394338}
-};
-inline const double dN_dEtha_4[4][4] { //ksi, etha = +/- 1 / sqrt(3)
-    {-0.394338, -0.105662, 0.105662, 0.394338},
-    {-0.105662, -0.394338, 0.394338, 0.105662},
-    {-0.105662, -0.394338, 0.394338, 0.105662},
-    {-0.394338, -0.105662, 0.105662, 0.394338}
-
-};
-inline const double dN_dKsi_9[9][4] {
-    {-0.443649, 0.443649, 0.056351, -0.056351},
-    {-0.25, 0.25, 0.25, -0.25},
-    {-0.056351, 0.056351, 0.443649, -0.443649},
-    {-0.443649, 0.443649, 0.056351, -0.056351},
-    {-0.25, 0.25, 0.25, -0.25},
-    {-0.056351, 0.056351, 0.443649, -0.443649},
-    {-0.443649, 0.443649, 0.056351, -0.056351},
-    {-0.25, 0.25, 0.25, -0.25},
-    {-0.056351, 0.056351, 0.443649, -0.443649}
-};
-inline const double dN_dEtha_9[9][4] {
-    {-0.443649, -0.056351, 0.056351, 0.443649},
-    {-0.443649, -0.056351, 0.056351, 0.443649},
-    {-0.443649, -0.056351, 0.056351, 0.443649},
-    {-0.25, -0.25, 0.25, 0.25},
-    {-0.25, -0.25, 0.25, 0.25},
-    {-0.25, -0.25, 0.25, 0.25},
-    {-0.056351, -0.443649, -0.443649, 0.056351},
-    {-0.056351, -0.443649, -0.443649, 0.056351},
-    {-0.056351, -0.443649, -0.443649, 0.056351}
-};
+inline double dN1_dEta(double const ksi) { return -0.25 * (1 - ksi);}
+inline double dN2_dEta(double const ksi) { return -0.25 * (1 + ksi);}
+inline double dN3_dEta(double const ksi) { return 0.25 * (1 + ksi);}
+inline double dN4_dEta(double const ksi) { return 0.25 * (1 - ksi);}
+inline double (*dN_dEta[4])(double) {dN1_dEta, dN2_dEta, dN3_dEta, dN4_dEta};
 
 
 // Węzeł siatki o określonych koordynatach x, y
-struct Node {
+struct Point {
     uint32_t id;
     double x;
     double y;
 
-    Node();
-    Node(uint32_t id, double x, double y);
-    friend std::ostream& operator<<(std::ostream& os, const Node& n);
+    Point();
+    Point(uint32_t id, double x, double y);
+    friend std::ostream& operator<<(std::ostream& os, const Point& n);
 };
 
 // Element składający się z (N_NODES_PER_ELEMENT =) 4 węzłów
@@ -92,15 +42,17 @@ struct Node {
 // 1---2
 struct Element {
     uint32_t id;
-    Node *nodes[4]; // Tablica ze wskaźnikami na węzły
-    unsigned int nIntegrPoints;
+    Point* nodes[4]; // Tablica ze wskaźnikami na węzły
+    unsigned int nIntegrPoints; // Ilość punktów całkowania
+    Point* integrPoints; // Tablica z punktami całkowania
+    double* integrPointWeight;
     SquareMatrix* jac; // Macierze Jakobiego dla 2 lub 3 punktów całkowania
     SquareMatrix hMatrix;
 
     Element();
     ~Element();
-    void setNIntergPoints(unsigned int nIntegrPoints);
-    void calculateJacobeans() const;
+    void setIntergPoints(unsigned int nIntegrPoints);
+    void calculateJacobians() const;
     void calculateH(double) const;
     friend std::ostream& operator<<(std::ostream& os, const Element& e);
 };
@@ -117,7 +69,7 @@ struct Grid {
     uint32_t nElems; // Liczba elementów
     uint32_t height; // Wysokość siatki
     uint32_t width; // Szerokość siatki
-    Node *nodes; // Tablica węzłów
+    Point *nodes; // Tablica węzłów
     Element *elems; // Tablica elementów
 
     Grid(uint32_t _nNodes, uint32_t _nElems, uint32_t _height, uint32_t _width);
@@ -140,7 +92,7 @@ class GlobalData {
     uint32_t nElems;
     Grid *grid;
 
-    void checkData(std::fstream*, std::string, std::string);
+    static void checkData(std::fstream*, std::string, std::string);
 public:
     GlobalData();
     void getOnlyData(const std::string &path);

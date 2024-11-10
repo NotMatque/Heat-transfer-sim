@@ -1,99 +1,96 @@
 #include "grid.h"
 
-Node::Node() {
+Point::Point() {
     id = 0;
     x = 0.0;
     y = 0.0;
 }
-Node::Node(const uint32_t id, const double x, const double y) {
+Point::Point(const uint32_t id, const double x, const double y) {
     this->id = id;
     this->x = x;
     this->y = y;
 }
-std::ostream& operator<<(std::ostream& os, const Node& n){
+std::ostream& operator<<(std::ostream& os, const Point& n){
     os << n.id << ": (" << n.x << ", " << n.y << ")";
     return os;
 }
 
 Element::Element() {
     id = 0;
-    nIntegrPoints = 0;
+    for(int i = 0; i < 4; i++)
+        nodes[i] = nullptr;
     hMatrix = SquareMatrix(4);
+    nIntegrPoints = 0;
+    integrPoints = nullptr;
+    integrPointWeight = nullptr;
+    jac = nullptr;
 }
 Element::~Element() {
+    delete[] integrPoints;
+    delete[] integrPointWeight;
     delete[] jac;
-    delete[] nodes;
 }
-void Element::setNIntergPoints(unsigned int nIntegrPoints) {
-    if(nIntegrPoints != 2 && nIntegrPoints != 3) {
+void Element::setIntergPoints(unsigned int nIntegrPoints) {
+    if(nIntegrPoints != 2 and nIntegrPoints != 3) {
         std::cerr << "ERROR!\nWrong number of integration Points\n" << std::endl;
         exit(1);
     }
+
+    // Tworzenie tablicy punktów całkowania
     this->nIntegrPoints = nIntegrPoints;
+    integrPoints = new Point[nIntegrPoints * nIntegrPoints];
+    integrPointWeight = new double[nIntegrPoints * nIntegrPoints];
+
+    // Tworzenie tablicy punktów całkowania
+    switch (this->nIntegrPoints) {
+        case 2: {
+            // integrPoints[i]:
+            //   3---2
+            //  /   /
+            // 0---1
+            double sq1_3 = sqrt(1./3.);
+            integrPoints[0].x = -sq1_3; integrPoints[0].y = -sq1_3;  integrPointWeight[0] = 1;
+            integrPoints[1].x = sq1_3;  integrPoints[1].y = -sq1_3;  integrPointWeight[1] = 1;
+            integrPoints[2].x = sq1_3;  integrPoints[2].y = sq1_3;    integrPointWeight[2] = 1;
+            integrPoints[3].x = -sq1_3; integrPoints[3].y = sq1_3;  integrPointWeight[3] = 1;
+            break;
+        }
+        case 3: {
+            // integrPoints[i]:
+            //     6---7---8
+            //    /   /   /
+            //   3---4---5
+            //  /   /   /
+            // 0---1---2
+            double sq3_5 = sqrt(3./5.);
+            integrPoints[0].x = -sq3_5; integrPoints[0].y = -sq3_5;  integrPointWeight[0] = 25./81.; // 5/9 * 5/9
+            integrPoints[1].x = 0;      integrPoints[1].y = -sq3_5;  integrPointWeight[1] = 40./81; // 5/9 * 8/9
+            integrPoints[2].x = sq3_5;  integrPoints[2].y = -sq3_5;  integrPointWeight[2] = 25./81.;
+            integrPoints[3].x = -sq3_5; integrPoints[3].y = 0;       integrPointWeight[3] = 40./81;
+            integrPoints[4].x = 0;      integrPoints[4].y = 0;       integrPointWeight[4] = 64./81; // 8/9 * 8/9
+            integrPoints[5].x = sq3_5;  integrPoints[5].y = 0;       integrPointWeight[5] = 40./81;
+            integrPoints[6].x = -sq3_5; integrPoints[6].y = sq3_5;   integrPointWeight[6] = 25./81.;
+            integrPoints[7].x = 0;      integrPoints[7].y = sq3_5;   integrPointWeight[7] = 40./81;
+            integrPoints[8].x = sq3_5;  integrPoints[8].y = sq3_5;   integrPointWeight[8] = 25./81.;
+            break;
+        }
+    }
+
+    // Tworzenie macierzy Jakobiego dla każdego PC
     jac = new SquareMatrix[nIntegrPoints * nIntegrPoints];
     for(int i = 0; i < nIntegrPoints * nIntegrPoints; i++)
         jac[i] = SquareMatrix(2);
 }
-void Element::calculateJacobeans() const {
-    if(nIntegrPoints == 2) {
-        // Liczenie macierzy jakobiego dla pc1
-        for(unsigned int i = 0; i < nIntegrPoints * nIntegrPoints; i++) {
-            jac[i][0][0] = dN_dKsi_4[i][0] * nodes[0]->x + dN_dKsi_4[i][1] * nodes[1]->x + dN_dKsi_4[i][2] * nodes[2]->x + dN_dKsi_4[i][3] * nodes[3]->x;
-            jac[i][0][1] = dN_dKsi_4[i][0] * nodes[0]->y + dN_dKsi_4[i][1] * nodes[1]->y + dN_dKsi_4[i][2] * nodes[2]->y + dN_dKsi_4[i][3] * nodes[3]->y;
-            jac[i][1][0] = dN_dEtha_4[i][0] * nodes[0]->x + dN_dEtha_4[i][1] * nodes[1]->x + dN_dEtha_4[i][2] * nodes[2]->x + dN_dEtha_4[i][3] * nodes[3]->x;
-            jac[i][1][1] = dN_dEtha_4[i][0] * nodes[0]->y + dN_dEtha_4[i][1] * nodes[1]->y + dN_dEtha_4[i][2] * nodes[2]->y + dN_dEtha_4[i][3] * nodes[3]->y;
-        }
-    }
-    if(nIntegrPoints == 3) {
-        for(unsigned int i = 0; i < nIntegrPoints * nIntegrPoints; i++) {
-            double ksi = 0, etha = 0;
-            switch(i) {
-                case 0:
-                    ksi = -0.77459;
-                    etha = -0.77459;
-                    break;
-                case 1:
-                    ksi = -0.77459;
-                    etha = 0.;
-                    break;
-                case 2:
-                    ksi = -0.77459;
-                    etha = 0.77459;
-                    break;
-                case 3:
-                    ksi = 0.;
-                    etha = -0.77459;
-                    break;
-                case 4:
-                    ksi = 0.;
-                    etha = 0.;
-                    break;
-                case 5:
-                    ksi = 0.;
-                    etha = 0.77459;
-                    break;
-                case 6:
-                    ksi = 0.77459;
-                    etha = -0.77459;
-                    break;
-                case 7:
-                    ksi = 0.77459;
-                    etha = 0.;
-                    break;
-                case 8:
-                    ksi = 0.77459;
-                    etha = 0.77459;
-                    break;
-            }
-            jac[i][0][0] = dN1_dKsi(etha) * nodes[0]->x + dN2_dKsi(etha) * nodes[1]->x + dN3_dKsi(etha) * nodes[2]->x + dN4_dKsi(etha) * nodes[3]->x;
-            jac[i][0][1] = dN1_dKsi(etha) * nodes[0]->y + dN2_dKsi(etha) * nodes[1]->y + dN3_dKsi(etha) * nodes[2]->y + dN4_dKsi(etha) * nodes[3]->y;
-            jac[i][1][0] = dN1_dEtha(ksi) * nodes[0]->x + dN2_dEtha(ksi) * nodes[1]->x + dN3_dEtha(ksi) * nodes[2]->x + dN4_dEtha(ksi) * nodes[3]->x;
-            jac[i][1][1] = dN1_dEtha(ksi) * nodes[0]->y + dN2_dEtha(ksi) * nodes[1]->y + dN3_dEtha(ksi) * nodes[2]->y + dN4_dEtha(ksi) * nodes[3]->y;
-        }
+void Element::calculateJacobians() const {
+    for(unsigned int i = 0; i < nIntegrPoints * nIntegrPoints; i++) {
+        jac[i][0][0] = dN_dKsi[0](integrPoints[i].y) * nodes[0]->x + dN_dKsi[1](integrPoints[i].y) * nodes[1]->x + dN_dKsi[2](integrPoints[i].y) * nodes[2]->x + dN_dKsi[3](integrPoints[i].y) * nodes[3]->x;
+        jac[i][0][1] = dN_dKsi[0](integrPoints[i].y) * nodes[0]->y + dN_dKsi[1](integrPoints[i].y) * nodes[1]->y + dN_dKsi[2](integrPoints[i].y) * nodes[2]->y + dN_dKsi[3](integrPoints[i].y) * nodes[3]->y;
+        jac[i][1][0] = dN_dEta[0](integrPoints[i].x) * nodes[0]->x + dN_dEta[1](integrPoints[i].x) * nodes[1]->x + dN_dEta[2](integrPoints[i].x) * nodes[2]->x + dN_dEta[3](integrPoints[i].x) * nodes[3]->x;
+        jac[i][1][1] = dN_dEta[0](integrPoints[i].x) * nodes[0]->y + dN_dEta[1](integrPoints[i].x) * nodes[1]->y + dN_dEta[2](integrPoints[i].x) * nodes[2]->y + dN_dEta[3](integrPoints[i].x) * nodes[3]->y;
     }
 }
 void Element::calculateH(double conductivity) const {
-    calculateJacobeans();
+    calculateJacobians();
     for(unsigned int i = 0; i < nIntegrPoints * nIntegrPoints; i++) {
         double dN_dx[4]; // Dla PCi
         double dN_dy[4];
@@ -105,8 +102,9 @@ void Element::calculateH(double conductivity) const {
 
         // Wyliczamy dNi_dx i dNi_dy dla PCi
         for(int j = 0; j < 4; j++) {
-            dN_dx[j] = invJacobianMatrix[0][0] * dN_dKsi_4[i][j] + invJacobianMatrix[0][1] * dN_dEtha_4[i][j];
-            dN_dy[j] = invJacobianMatrix[1][0] * dN_dKsi_4[i][j] + invJacobianMatrix[1][1] * dN_dEtha_4[i][j];
+            dN_dx[j] = invJacobianMatrix[0][0] * dN_dKsi[j](integrPoints[i].y) + invJacobianMatrix[0][1] * dN_dEta[j](integrPoints[i].x);
+            dN_dy[j] = invJacobianMatrix[1][0] * dN_dKsi[j](integrPoints[i].y) + invJacobianMatrix[1][1] * dN_dEta[j](integrPoints[i].x);
+            std::cout << "PC" << i << ": " << dN_dx[j] << " " << dN_dy[j] << std::endl;
         }
 
         // Wyznaczamy H_PCi
@@ -115,11 +113,11 @@ void Element::calculateH(double conductivity) const {
             for(int k = 0; k < 4; k++) {
                 hMatrixIntegrPointI[j][k] = (dN_dx[j] * dN_dx[k] + dN_dy[j] * dN_dy[k]) * conductivity * Jacobian;
             }
-        std::cout << hMatrixIntegrPointI << std::endl;
+        //std::cout << hMatrixIntegrPointI << std::endl;
 
         for(int j = 0; j < 4; j++)
             for(int k = 0; k < 4; k++)
-                hMatrix[j][k] += hMatrixIntegrPointI[j][k] * 1 * 1; // DO ZMIANY! WAGI Z GAUSSA
+                hMatrix[j][k] += hMatrixIntegrPointI[j][k] * integrPointWeight[i]; // DO ZMIANY! WAGI Z GAUSSA
     }
 }
 std::ostream& operator<<(std::ostream& os, const Element& e) {
@@ -139,7 +137,7 @@ Grid::Grid(uint32_t const _nNodes, uint32_t const _nElems, uint32_t const _heigh
         std::cerr << "ERROR: Grid size is not square!" << std::endl;
         exit(1);
     }
-    nodes = new Node[nNodes];
+    nodes = new Point[nNodes];
     elems = new Element[nElems];
 }
 Grid::~Grid() {
@@ -165,7 +163,7 @@ void Grid::generateGrid() const { // BARDZO BRZYDKIE ROZWIĄZANIE!!!!!!!!!!!!!!!
         elems[i].nodes[1] = &nodes[i + 1];
         elems[i].nodes[2] = &nodes[i + height];
         elems[i].nodes[3] = &nodes[i + 1 + height];
-        elems[i].calculateJacobeans();
+        elems[i].calculateJacobians();
     }
 }
 
