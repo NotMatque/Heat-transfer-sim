@@ -23,12 +23,12 @@ Element::Element() {
     nIntegrPoints = 0;
     integrPoints = nullptr;
     integrPointWeight = nullptr;
-    jac = nullptr;
+    jMatrix = nullptr;
 }
 Element::~Element() {
     delete[] integrPoints;
     delete[] integrPointWeight;
-    delete[] jac;
+    delete[] jMatrix;
 }
 void Element::setIntergPoints(unsigned int nIntegrPoints) {
     if(nIntegrPoints != 2 and nIntegrPoints != 3) {
@@ -77,16 +77,16 @@ void Element::setIntergPoints(unsigned int nIntegrPoints) {
     }
 
     // Tworzenie macierzy Jakobiego dla każdego PC
-    jac = new SquareMatrix[nIntegrPoints * nIntegrPoints];
+    jMatrix = new SquareMatrix[nIntegrPoints * nIntegrPoints];
     for(int i = 0; i < nIntegrPoints * nIntegrPoints; i++)
-        jac[i] = SquareMatrix(2);
+        jMatrix[i] = SquareMatrix(2);
 }
 void Element::calculateJacobians() const {
     for(unsigned int i = 0; i < nIntegrPoints * nIntegrPoints; i++) {
-        jac[i][0][0] = dN_dKsi[0](integrPoints[i].y) * nodes[0]->x + dN_dKsi[1](integrPoints[i].y) * nodes[1]->x + dN_dKsi[2](integrPoints[i].y) * nodes[2]->x + dN_dKsi[3](integrPoints[i].y) * nodes[3]->x;
-        jac[i][0][1] = dN_dKsi[0](integrPoints[i].y) * nodes[0]->y + dN_dKsi[1](integrPoints[i].y) * nodes[1]->y + dN_dKsi[2](integrPoints[i].y) * nodes[2]->y + dN_dKsi[3](integrPoints[i].y) * nodes[3]->y;
-        jac[i][1][0] = dN_dEta[0](integrPoints[i].x) * nodes[0]->x + dN_dEta[1](integrPoints[i].x) * nodes[1]->x + dN_dEta[2](integrPoints[i].x) * nodes[2]->x + dN_dEta[3](integrPoints[i].x) * nodes[3]->x;
-        jac[i][1][1] = dN_dEta[0](integrPoints[i].x) * nodes[0]->y + dN_dEta[1](integrPoints[i].x) * nodes[1]->y + dN_dEta[2](integrPoints[i].x) * nodes[2]->y + dN_dEta[3](integrPoints[i].x) * nodes[3]->y;
+        jMatrix[i][0][0] = dN_dKsi[0](integrPoints[i].y) * nodes[0]->x + dN_dKsi[1](integrPoints[i].y) * nodes[1]->x + dN_dKsi[2](integrPoints[i].y) * nodes[2]->x + dN_dKsi[3](integrPoints[i].y) * nodes[3]->x;
+        jMatrix[i][0][1] = dN_dKsi[0](integrPoints[i].y) * nodes[0]->y + dN_dKsi[1](integrPoints[i].y) * nodes[1]->y + dN_dKsi[2](integrPoints[i].y) * nodes[2]->y + dN_dKsi[3](integrPoints[i].y) * nodes[3]->y;
+        jMatrix[i][1][0] = dN_dEta[0](integrPoints[i].x) * nodes[0]->x + dN_dEta[1](integrPoints[i].x) * nodes[1]->x + dN_dEta[2](integrPoints[i].x) * nodes[2]->x + dN_dEta[3](integrPoints[i].x) * nodes[3]->x;
+        jMatrix[i][1][1] = dN_dEta[0](integrPoints[i].x) * nodes[0]->y + dN_dEta[1](integrPoints[i].x) * nodes[1]->y + dN_dEta[2](integrPoints[i].x) * nodes[2]->y + dN_dEta[3](integrPoints[i].x) * nodes[3]->y;
     }
 }
 void Element::calculateH(double conductivity) const {
@@ -96,15 +96,15 @@ void Element::calculateH(double conductivity) const {
         double dN_dy[4];
 
         // Przemnażamy macierz Jakobiego przez odwrotność Jakobianu
-        const double Jacobian = jac[i].det();
-        SquareMatrix invJacobianMatrix(jac[i].getSize());
-        invJacobianMatrix = jac[i].inverse();
+        const double Jacobian = jMatrix[i].det();
+        SquareMatrix invJacobianMatrix(jMatrix[i].getSize());
+        invJacobianMatrix = jMatrix[i].inverse();
 
         // Wyliczamy dNi_dx i dNi_dy dla PCi
         for(int j = 0; j < 4; j++) {
             dN_dx[j] = invJacobianMatrix[0][0] * dN_dKsi[j](integrPoints[i].y) + invJacobianMatrix[0][1] * dN_dEta[j](integrPoints[i].x);
             dN_dy[j] = invJacobianMatrix[1][0] * dN_dKsi[j](integrPoints[i].y) + invJacobianMatrix[1][1] * dN_dEta[j](integrPoints[i].x);
-            std::cout << "PC" << i << ": " << dN_dx[j] << " " << dN_dy[j] << std::endl;
+            //std::cout << "PC" << i << ": " << dN_dx[j] << " " << dN_dy[j] << std::endl;
         }
 
         // Wyznaczamy H_PCi
@@ -117,7 +117,7 @@ void Element::calculateH(double conductivity) const {
 
         for(int j = 0; j < 4; j++)
             for(int k = 0; k < 4; k++)
-                hMatrix[j][k] += hMatrixIntegrPointI[j][k] * integrPointWeight[i]; // DO ZMIANY! WAGI Z GAUSSA
+                hMatrix[j][k] += hMatrixIntegrPointI[j][k] * integrPointWeight[i];
     }
 }
 std::ostream& operator<<(std::ostream& os, const Element& e) {
@@ -167,7 +167,7 @@ void Grid::generateGrid() const { // BARDZO BRZYDKIE ROZWIĄZANIE!!!!!!!!!!!!!!!
     }
 }
 
-void GlobalData::checkData(std::fstream* file, std::string const curr, const std::string expected) {
+void GlobalData::checkDataTag(std::fstream* file, std::string const curr, const std::string expected) {
     if(curr != expected) {
         std::cerr << "ERROR:\nReading from file\nExpected: " << expected << "\nFound: " << curr << std::endl;
         file->close();
@@ -199,43 +199,78 @@ void GlobalData::getOnlyData(const std::string &path) {
         exit(1);
     }
 
-    std::string ignoreMe;
-    file >> ignoreMe;
-    checkData(&file, ignoreMe, "SimulationTime");
-    file >> simTime; //SimulationTime
-    file >> ignoreMe;
-    checkData(&file, ignoreMe, "SimulationStepTime");
-    file >> simStepTime; //SimulationStepTime
-    file >> ignoreMe;
-    checkData(&file, ignoreMe, "Conductivity");
-    file >> conductivity; //Conductivity
-    file >> ignoreMe;
-    checkData(&file, ignoreMe, "Alfa");
-    file  >> alpha; //Alfa
-    file >> ignoreMe;
-    checkData(&file, ignoreMe, "Tot");
-    file  >> tot; //Tot
-    file >> ignoreMe;
-    checkData(&file, ignoreMe, "InitialTemp");
-    file  >> initTemp; //InitialTemp
-    file >> ignoreMe;
-    checkData(&file, ignoreMe, "Density");
-    file  >> density; //Density
-    file >> ignoreMe;
-    checkData(&file, ignoreMe, "SpecificHeat");
-    file  >> specificHeat; //SpecificHeat
-    file >> ignoreMe;
-    checkData(&file, ignoreMe, "NodesNumber");
-    file  >> nNodes;
-    file >> ignoreMe;
-    checkData(&file, ignoreMe, "ElementsNumber");
-    file  >> nElems;
-    file >> ignoreMe;
-    checkData(&file, ignoreMe, "GridHeight");
-    file  >> gridHeight;
-    file >> ignoreMe;
-    checkData(&file, ignoreMe, "GridWidth");
-    file  >> gridWidth;
+    std::string tempString;
+    // === SimulationTime ===
+    file >> tempString;
+    checkDataTag(&file, tempString, "SimulationTime");
+    file >> tempString;
+    simTime = stod(tempString);
+
+    // === SimulationStepTime ===
+    file >> tempString;
+    checkDataTag(&file, tempString, "SimulationStepTime");
+    file >> tempString;
+    simStepTime = stod(tempString);
+
+    // === Conductivity ===
+    file >> tempString;
+    checkDataTag(&file, tempString, "Conductivity");
+    file >> tempString;
+    conductivity = stod(tempString);
+
+    // === Alpha ===
+    file >> tempString;
+    checkDataTag(&file, tempString, "Alfa");
+    file  >> tempString;
+    alpha = stod(tempString);
+
+    // === Tot ===
+    file >> tempString;
+    checkDataTag(&file, tempString, "Tot");
+    file  >> tempString;
+    tot = stod(tempString);
+
+    // === Initial temperature ===
+    file >> tempString;
+    checkDataTag(&file, tempString, "InitialTemp");
+    file  >> tempString;
+    initTemp = stod(tempString);
+
+    // === Density ===
+    file >> tempString;
+    checkDataTag(&file, tempString, "Density");
+    file  >> tempString;
+    density = stod(tempString);
+
+    // === Specific Heat ===
+    file >> tempString;
+    checkDataTag(&file, tempString, "SpecificHeat");
+    file  >> tempString;
+    specificHeat = stod(tempString);
+
+    // === Number of Nodes ===
+    file >> tempString;
+    checkDataTag(&file, tempString, "NodesNumber");
+    file  >> tempString;
+    nNodes = stoi(tempString);
+
+    // === Number of Elements ===
+    file >> tempString;
+    checkDataTag(&file, tempString, "ElementsNumber");
+    file  >> tempString;
+    nElems = stoi(tempString);
+
+    // === Height of the grid ===
+    file >> tempString;
+    checkDataTag(&file, tempString, "GridHeight");
+    file  >> tempString;
+    gridHeight = stoi(tempString);
+
+    // === Width of the grid
+    file >> tempString;
+    checkDataTag(&file, tempString, "GridWidth");
+    file  >> tempString;
+    gridWidth = stoi(tempString);
 
     file.close();
 }
@@ -258,22 +293,22 @@ void GlobalData::getAllData(const std::string &path) {
     // Wczytywanie węzłów
     grid = new Grid(nNodes, nElems, gridHeight, gridWidth);
     file >> ignoreMe;
-    checkData(&file, ignoreMe, "*Node");
+    checkDataTag(&file, ignoreMe, "*Node");
     for(uint32_t i = 0; i < nNodes; i++) {
-        file >> ignoreMe;
+        file >> ignoreMe; // node id
         std::string tempX, tempY;
-        file >> tempX;
+        file >> tempX; // node x
         tempX.pop_back();
         grid->nodes[i].x = stod(tempX);
-        file >> tempY;
+        file >> tempY; // node y
         grid->nodes[i].y = stod(tempY);
         grid->nodes[i].id = i;
     }
 
     file >> ignoreMe;
-    checkData(&file, ignoreMe, "*Element,");
+    checkDataTag(&file, ignoreMe, "*Element,");
     file >> ignoreMe;
-    checkData(&file, ignoreMe, "type=DC2D4");
+    checkDataTag(&file, ignoreMe, "type=DC2D4");
     for(uint32_t i = 0; i < nElems; i++) {
         file >> ignoreMe; // Nr elementu
         file >> ignoreMe; // Node nr 1

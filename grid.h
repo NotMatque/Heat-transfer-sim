@@ -36,17 +36,18 @@ struct Point {
 };
 
 // Element składający się z (N_NODES_PER_ELEMENT =) 4 węzłów
-// Węzły:
+// ID lokalne węzłów:
 //   4---3
 //  /   /
 // 1---2
-struct Element {
-    uint32_t id;
-    Point* nodes[4]; // Tablica ze wskaźnikami na węzły
+class Element {
     unsigned int nIntegrPoints; // Ilość punktów całkowania
     Point* integrPoints; // Tablica z punktami całkowania
     double* integrPointWeight;
-    SquareMatrix* jac; // Macierze Jakobiego dla 2 lub 3 punktów całkowania
+    SquareMatrix* jMatrix; // Macierze Jakobiego dla 2 lub 3 punktów całkowania
+public:
+    uint32_t id;
+    Point* nodes[4]; // Tablica ze wskaźnikami na węzły
     SquareMatrix hMatrix;
 
     Element();
@@ -92,7 +93,7 @@ class GlobalData {
     uint32_t nElems;
     Grid *grid;
 
-    static void checkData(std::fstream*, std::string, std::string);
+    static void checkDataTag(std::fstream*, std::string, std::string);
 public:
     GlobalData();
     void getOnlyData(const std::string &path);
