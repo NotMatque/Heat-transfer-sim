@@ -75,7 +75,6 @@ struct Grid {
 
     Grid(uint32_t _nNodes, uint32_t _nElems, uint32_t _height, uint32_t _width);
     ~Grid();
-    void generateGrid() const;
 };
 
 class GlobalData {
@@ -99,7 +98,6 @@ public:
     void getOnlyData(const std::string &path);
     void getAllData(const std::string &path);
     void printData() const;
-    void createGrid();
     void printGridNodes() const;
     void printGridElems() const;
 };

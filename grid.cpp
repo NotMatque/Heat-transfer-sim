@@ -144,28 +144,6 @@ Grid::~Grid() {
     delete[] nodes;
     delete[] elems;
 }
-void Grid::generateGrid() const { // BARDZO BRZYDKIE ROZWIĄZANIE!!!!!!!!!!!!!!!!!!!
-    // Creating nodes
-    uint32_t h = 0, w = 0;
-    for(uint32_t i = 0; i < nNodes; i++) {
-        nodes[i].id = i;
-        nodes[i].x = w * 0.1; // Zmienić na step
-        nodes[i].y = h++ * 0.1; // Zmienić na step
-        if(h >= height) {
-            h = 0;
-            w++;
-        }
-    }
-    // Creating elements
-    for(uint32_t i = 0; i < nElems; i++) {
-        elems[i].id = i;
-        elems[i].nodes[0] = &nodes[i];
-        elems[i].nodes[1] = &nodes[i + 1];
-        elems[i].nodes[2] = &nodes[i + height];
-        elems[i].nodes[3] = &nodes[i + 1 + height];
-        elems[i].calculateJacobians();
-    }
-}
 
 void GlobalData::checkDataTag(std::fstream* file, std::string const curr, const std::string expected) {
     if(curr != expected) {
@@ -341,11 +319,6 @@ void GlobalData::printData() const {
     std::cout << "Number of elements: " << nElems << "\n";
     std::cout << "Grid height: " << gridHeight << "\n";
     std::cout << "Grid width: " << gridWidth << "\n";
-}
-// Tworzy siatkę MES
-void GlobalData::createGrid() {
-    grid = new Grid(nNodes, nElems, gridHeight, gridWidth);
-    grid->generateGrid();
 }
 // Wypisuje koordynaty wszystkich węzłów siatki MES
 void GlobalData::printGridNodes() const{
