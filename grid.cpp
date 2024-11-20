@@ -77,16 +77,14 @@ void Element::setIntergPoints(unsigned int nIntegrPoints) {
     }
 
     // Tworzenie macierzy Jakobiego dla każdego PC
-    jMatrix = new SquareMatrix[nIntegrPoints * nIntegrPoints];
-    for(int i = 0; i < nIntegrPoints * nIntegrPoints; i++)
-        jMatrix[i] = SquareMatrix(2);
+    jMatrix = new SquareMatrix[nIntegrPoints * nIntegrPoints] (2);
 }
 void Element::calculateJacobians() const {
     for(unsigned int i = 0; i < nIntegrPoints * nIntegrPoints; i++) {
-        jMatrix[i][0][0] = dN_dKsi[0](integrPoints[i].y) * nodes[0]->x + dN_dKsi[1](integrPoints[i].y) * nodes[1]->x + dN_dKsi[2](integrPoints[i].y) * nodes[2]->x + dN_dKsi[3](integrPoints[i].y) * nodes[3]->x;
-        jMatrix[i][0][1] = dN_dKsi[0](integrPoints[i].y) * nodes[0]->y + dN_dKsi[1](integrPoints[i].y) * nodes[1]->y + dN_dKsi[2](integrPoints[i].y) * nodes[2]->y + dN_dKsi[3](integrPoints[i].y) * nodes[3]->y;
-        jMatrix[i][1][0] = dN_dEta[0](integrPoints[i].x) * nodes[0]->x + dN_dEta[1](integrPoints[i].x) * nodes[1]->x + dN_dEta[2](integrPoints[i].x) * nodes[2]->x + dN_dEta[3](integrPoints[i].x) * nodes[3]->x;
-        jMatrix[i][1][1] = dN_dEta[0](integrPoints[i].x) * nodes[0]->y + dN_dEta[1](integrPoints[i].x) * nodes[1]->y + dN_dEta[2](integrPoints[i].x) * nodes[2]->y + dN_dEta[3](integrPoints[i].x) * nodes[3]->y;
+        jMatrix[i](0, 0) = dN_dKsi[0](integrPoints[i].y) * nodes[0]->x + dN_dKsi[1](integrPoints[i].y) * nodes[1]->x + dN_dKsi[2](integrPoints[i].y) * nodes[2]->x + dN_dKsi[3](integrPoints[i].y) * nodes[3]->x;
+        jMatrix[i](0, 1) = dN_dKsi[0](integrPoints[i].y) * nodes[0]->y + dN_dKsi[1](integrPoints[i].y) * nodes[1]->y + dN_dKsi[2](integrPoints[i].y) * nodes[2]->y + dN_dKsi[3](integrPoints[i].y) * nodes[3]->y;
+        jMatrix[i](1, 0) = dN_dEta[0](integrPoints[i].x) * nodes[0]->x + dN_dEta[1](integrPoints[i].x) * nodes[1]->x + dN_dEta[2](integrPoints[i].x) * nodes[2]->x + dN_dEta[3](integrPoints[i].x) * nodes[3]->x;
+        jMatrix[i](1, 1) = dN_dEta[0](integrPoints[i].x) * nodes[0]->y + dN_dEta[1](integrPoints[i].x) * nodes[1]->y + dN_dEta[2](integrPoints[i].x) * nodes[2]->y + dN_dEta[3](integrPoints[i].x) * nodes[3]->y;
     }
 }
 void Element::calculateH(double conductivity) const {
@@ -102,8 +100,8 @@ void Element::calculateH(double conductivity) const {
 
         // Wyliczamy dNi_dx i dNi_dy dla PCi
         for(int j = 0; j < 4; j++) {
-            dN_dx[j] = invJacobianMatrix[0][0] * dN_dKsi[j](integrPoints[i].y) + invJacobianMatrix[0][1] * dN_dEta[j](integrPoints[i].x);
-            dN_dy[j] = invJacobianMatrix[1][0] * dN_dKsi[j](integrPoints[i].y) + invJacobianMatrix[1][1] * dN_dEta[j](integrPoints[i].x);
+            dN_dx[j] = invJacobianMatrix(0, 0) * dN_dKsi[j](integrPoints[i].y) + invJacobianMatrix(0, 1) * dN_dEta[j](integrPoints[i].x);
+            dN_dy[j] = invJacobianMatrix(1, 0) * dN_dKsi[j](integrPoints[i].y) + invJacobianMatrix(1, 1) * dN_dEta[j](integrPoints[i].x);
             //std::cout << "PC" << i << ": " << dN_dx[j] << " " << dN_dy[j] << std::endl;
         }
 
@@ -111,13 +109,13 @@ void Element::calculateH(double conductivity) const {
         SquareMatrix hMatrixIntegrPointI(4);
         for(int j = 0; j < 4; j++)
             for(int k = 0; k < 4; k++) {
-                hMatrixIntegrPointI[j][k] = (dN_dx[j] * dN_dx[k] + dN_dy[j] * dN_dy[k]) * conductivity * Jacobian;
+                hMatrixIntegrPointI(j, k) = (dN_dx[j] * dN_dx[k] + dN_dy[j] * dN_dy[k]) * conductivity * Jacobian;
             }
         //std::cout << hMatrixIntegrPointI << std::endl;
 
         for(int j = 0; j < 4; j++)
             for(int k = 0; k < 4; k++)
-                hMatrix[j][k] += hMatrixIntegrPointI[j][k] * integrPointWeight[i];
+                hMatrix(j, k) += hMatrixIntegrPointI(j, k) * integrPointWeight[i];
     }
 }
 std::ostream& operator<<(std::ostream& os, const Element& e) {

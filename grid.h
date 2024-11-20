@@ -6,6 +6,7 @@
 #include <iomanip>
 #include <cmath>
 
+
 #include "matrix.h"
 
 #define N_NODES_PER_ELEMENT 4
@@ -47,7 +48,7 @@ class Element {
     SquareMatrix* jMatrix; // Macierze Jakobiego dla 2 lub 3 punktów całkowania
 public:
     uint32_t id;
-    Point* nodes[4]; // Tablica ze wskaźnikami na węzły
+    Point* nodes[4]; // Tablica ze wskaźnikami na węzły // TODO: shared_ptr
     SquareMatrix hMatrix;
 
     Element();
@@ -70,7 +71,7 @@ struct Grid {
     uint32_t nElems; // Liczba elementów
     uint32_t height; // Wysokość siatki
     uint32_t width; // Szerokość siatki
-    Point *nodes; // Tablica węzłów
+    Point *nodes; // Tablica węzłów // TODO: shared_ptr
     Element *elems; // Tablica elementów
 
     Grid(uint32_t _nNodes, uint32_t _nElems, uint32_t _height, uint32_t _width);

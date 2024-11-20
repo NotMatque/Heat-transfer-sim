@@ -15,12 +15,18 @@ void funcTest() {
     el.nodes[2] = new Point(3, 0.025, 0.025);
     el.nodes[3] = new Point(4, 0, 0.025);
 
-    el.setIntergPoints(3);
+    el.setIntergPoints(2);
     el.calculateH(30);
     std::cout << el.hMatrix << std::endl;
 }
 
 int main() {
-    funcTest();
+    //funcTest();
+    GlobalData gData;
+    gData.getAllData("../Test1_4_4.txt");
+    gData.printData();
+    gData.printGridNodes();
+    gData.printGridElems();
+
     return 0;
 }

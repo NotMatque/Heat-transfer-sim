@@ -1,19 +1,9 @@
-//
-// Created by Mateusz on 04.11.2024.
-//
-
 #include "matrix.h"
 
-SquareMatrix::SquareMatrix(unsigned int const n) {
-    this->size = n;
-    matrix = new double*[n];
-    for (unsigned int i = 0; i < n; i++)
-        matrix[i] = new double[n] {0};
-}
-SquareMatrix::~SquareMatrix() {
-    for(unsigned int i = 0; i < size; i++)
-        delete[] matrix[i];
-    delete[] matrix;
+
+SquareMatrix::SquareMatrix(unsigned int const rows): size(rows), matrix(std::make_shared<std::shared_ptr<double[]>[]>(rows)) {
+    for (unsigned int i = 0; i < rows; i++)
+        matrix[i] = std::make_shared<double[]>(rows);
 }
 
 unsigned int SquareMatrix::getSize() {
@@ -46,10 +36,10 @@ SquareMatrix SquareMatrix::inverse() const {
     if(det() != 0 && size == 2) {
         SquareMatrix result(size);
         double temp = 1. / (matrix[0][0] * matrix[1][1] - matrix[0][1] * matrix[1][0]);
-        result[0][0] = matrix[1][1] * temp;
-        result[0][1] = -matrix[0][1] * temp;
-        result[1][0] = -matrix[1][0] * temp;
-        result[1][1] = matrix[0][0] * temp;
+        result(0, 0) = matrix[1][1] * temp;
+        result(0, 1) = -matrix[0][1] * temp;
+        result(1, 0) = -matrix[1][0] * temp;
+        result(1, 1) = matrix[0][0] * temp;
         return result;
     }
     else {
@@ -90,8 +80,8 @@ SquareMatrix SquareMatrix::operator*(const double& n) const {
     return result;
 }
 
-double * SquareMatrix::operator[](unsigned int i) const {
-    return matrix[i];
+double & SquareMatrix::operator()(unsigned int row, unsigned int col) const {
+    return matrix[row][col];
 }
 
 std::ostream & operator<<(std::ostream &os, const SquareMatrix &n) {
