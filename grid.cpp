@@ -4,22 +4,25 @@ Point::Point() {
     id = 0;
     x = 0.0;
     y = 0.0;
+    isOnEdge = false;
 }
 Point::Point(const uint32_t id, const double x, const double y) {
     this->id = id;
     this->x = x;
     this->y = y;
+    this->isOnEdge = false;
 }
 std::ostream& operator<<(std::ostream& os, const Point& n){
-    os << n.id << ": (" << n.x << ", " << n.y << ")";
+    os << n.id << ": (" << n.x << ", " << n.y << ") " << (n.isOnEdge ? "on edge" : "");
     return os;
 }
 
-Element::Element() {
+Element::Element() { // TODO: Przy tworzeniu się elementu powinna być od razu ustalana ilość PC
     id = 0;
     for(int i = 0; i < 4; i++)
         nodes[i] = nullptr;
     hMatrix = SquareMatrix(4);
+    hbcMatrix = SquareMatrix(4);
     nIntegrPoints = 0;
     integrPoints = nullptr;
     integrPointWeight = nullptr;
@@ -31,7 +34,7 @@ Element::~Element() {
     delete[] jMatrix;
 }
 void Element::setIntergPoints(unsigned int nIntegrPoints) {
-    if(nIntegrPoints != 2 and nIntegrPoints != 3) {
+    if(nIntegrPoints != 2 and nIntegrPoints != 3 and nIntegrPoints != 4) {
         std::cerr << "ERROR!\nWrong number of integration Points\n" << std::endl;
         exit(1);
     }
@@ -40,6 +43,8 @@ void Element::setIntergPoints(unsigned int nIntegrPoints) {
     this->nIntegrPoints = nIntegrPoints;
     integrPoints = new Point[nIntegrPoints * nIntegrPoints];
     integrPointWeight = new double[nIntegrPoints * nIntegrPoints];
+    integrSidePoints = new Point[4 * nIntegrPoints];
+    integrSidePointWeight = new double[4 * nIntegrPoints];
 
     // Tworzenie tablicy punktów całkowania
     switch (this->nIntegrPoints) {
@@ -49,10 +54,12 @@ void Element::setIntergPoints(unsigned int nIntegrPoints) {
             //  /   /
             // 0---1
             double sq1_3 = sqrt(1./3.);
-            integrPoints[0].x = -sq1_3; integrPoints[0].y = -sq1_3;  integrPointWeight[0] = 1;
-            integrPoints[1].x = sq1_3;  integrPoints[1].y = -sq1_3;  integrPointWeight[1] = 1;
-            integrPoints[2].x = sq1_3;  integrPoints[2].y = sq1_3;    integrPointWeight[2] = 1;
-            integrPoints[3].x = -sq1_3; integrPoints[3].y = sq1_3;  integrPointWeight[3] = 1;
+            double coords[2] = {-sq1_3, sq1_3};
+            for(int i = 0; i < pow(nIntegrPoints, 2); i++) {
+                integrPoints[i].x = coords[i % 2];
+                integrPoints[i].y = coords[i / 2];
+                integrPointWeight[i] = 1;
+            }
             break;
         }
         case 3: {
@@ -63,15 +70,41 @@ void Element::setIntergPoints(unsigned int nIntegrPoints) {
             //  /   /   /
             // 0---1---2
             double sq3_5 = sqrt(3./5.);
-            integrPoints[0].x = -sq3_5; integrPoints[0].y = -sq3_5;  integrPointWeight[0] = 25./81.; // 5/9 * 5/9
-            integrPoints[1].x = 0;      integrPoints[1].y = -sq3_5;  integrPointWeight[1] = 40./81; // 5/9 * 8/9
-            integrPoints[2].x = sq3_5;  integrPoints[2].y = -sq3_5;  integrPointWeight[2] = 25./81.;
-            integrPoints[3].x = -sq3_5; integrPoints[3].y = 0;       integrPointWeight[3] = 40./81;
-            integrPoints[4].x = 0;      integrPoints[4].y = 0;       integrPointWeight[4] = 64./81; // 8/9 * 8/9
-            integrPoints[5].x = sq3_5;  integrPoints[5].y = 0;       integrPointWeight[5] = 40./81;
-            integrPoints[6].x = -sq3_5; integrPoints[6].y = sq3_5;   integrPointWeight[6] = 25./81.;
-            integrPoints[7].x = 0;      integrPoints[7].y = sq3_5;   integrPointWeight[7] = 40./81;
-            integrPoints[8].x = sq3_5;  integrPoints[8].y = sq3_5;   integrPointWeight[8] = 25./81.;
+            double coords[3] = {-sq3_5, 0., sq3_5};
+            double weights[3] = {5./9., 8./9., 5./9.};
+            unsigned int index = 0;
+            for(int i = 0; i < nIntegrPoints; i++)
+                for(int j = 0; j < nIntegrPoints; j++) {
+                    integrPoints[index].x = coords[j];
+                    integrPoints[index].y = coords[i];
+                    integrPointWeight[index] = weights[j] * weights[i];
+                    index++;
+                }
+            break;
+        }
+        case 4: {
+            // integrPoints[i]:
+            //       12--13--14--15
+            //      /   /   /   /
+            //     8---9---10--11
+            //    /   /   /   /
+            //   4---5---6---7
+            //  /   /   /   /
+            // 0---1---2---3
+            double p1 = sqrt((3./7. - (2./7. * sqrt(6./5.))));
+            double p2 = sqrt((3./7. + (2./7. * sqrt(6./5.))));
+            double coords[4] = {-p2, -p1, p1, p2};
+            double w1 = (18. + sqrt(30)) / 36.;
+            double w2 = (18. - sqrt(30)) / 36.;
+            double weights[4] = {w2, w1, w1, w2};
+            unsigned int index = 0;
+            for(int i = 0; i < nIntegrPoints; i++)
+                for(int j = 0; j < nIntegrPoints; j++) {
+                    integrPoints[index].x = coords[j];
+                    integrPoints[index].y = coords[i];
+                    integrPointWeight[index] = weights[j] * weights[i];
+                    index++;
+                }
             break;
         }
     }
@@ -137,10 +170,22 @@ Grid::Grid(uint32_t const _nNodes, uint32_t const _nElems, uint32_t const _heigh
     }
     nodes = new Point[nNodes];
     elems = new Element[nElems];
+    hMatrix = SquareMatrix(nNodes);
 }
 Grid::~Grid() {
     delete[] nodes;
     delete[] elems;
+}
+void Grid::calculateHMatrixGlobal(double conductivity, double alpha) const {
+    for(int i = 0; i < nElems; i++) {
+        elems[i].setIntergPoints(2); // TODO: Przenieść do konstruktora
+        elems[i].calculateH(conductivity);
+
+        for(int j = 0; j < 4; j++)
+            for(int k = 0; k < 4; k++)
+                hMatrix(elems[i].nodes[j]->id, elems[i].nodes[k]->id) += elems[i].hMatrix(j, k);
+    }
+    std::cout << hMatrix << std::endl;
 }
 
 void GlobalData::checkDataTag(std::fstream* file, std::string const curr, const std::string expected) {
@@ -281,6 +326,7 @@ void GlobalData::getAllData(const std::string &path) {
         grid->nodes[i].id = i;
     }
 
+    // Wczytywanie elementów
     file >> ignoreMe;
     checkDataTag(&file, ignoreMe, "*Element,");
     file >> ignoreMe;
@@ -301,11 +347,22 @@ void GlobalData::getAllData(const std::string &path) {
         grid->elems[i].id = i;
     }
 
+    // Ustawianie węzłów na granicy
+    file >> ignoreMe;
+    checkDataTag(&file, ignoreMe, "*BC");
+    for(int i = 0; i < 11; i++) {
+        file >> ignoreMe;
+        ignoreMe.pop_back();
+        grid->nodes[stoi(ignoreMe) - 1].isOnEdge = true;
+    }
+    file >> ignoreMe;
+    grid->nodes[stoi(ignoreMe) - 1].isOnEdge = true;
+
     file.close();
 }
 // Wypisuje do konsoli wczytane dane
 void GlobalData::printData() const {
-    std::cout << "\nData\nSimulation time: " << simTime << " [s]\n";
+    std::cout << "\nGlobal Data:\nSimulation time: " << simTime << " [s]\n";
     std::cout << "Simulation step time: " << simStepTime << " [s]\n";
     std::cout << "Conductivity: " << conductivity << " [W/(mK)]\n";
     std::cout << "Alpha: " << alpha << "\n";
@@ -329,4 +386,8 @@ void GlobalData::printGridElems() const{
     std::cout << "Elements:\n";
     for(uint32_t i = 0; i < nElems; i++)
         std::cout << grid->elems[i] << "\n";
+}
+
+void GlobalData::gridCalculateHMatrixGlobal() const {
+    grid->calculateHMatrixGlobal(this->conductivity, this->alpha);
 }

@@ -8,25 +8,23 @@
 
 using namespace std;
 
-void funcTest() {
-    Element el;
-    el.nodes[0] = new Point(1, 0.01, -0.01);
-    el.nodes[1] = new Point(2, 0.025, 0);
-    el.nodes[2] = new Point(3, 0.025, 0.025);
-    el.nodes[3] = new Point(4, 0, 0.025);
-
-    el.setIntergPoints(2);
-    el.calculateH(30);
-    std::cout << el.hMatrix << std::endl;
+void testFunc() {
+    cout << "testFunc" << endl;
+    Element elem = Element();
+    elem.nodes[0] = new Point(1, 0., 0.);
+    elem.nodes[1] = new Point(1, 0.25, 0.);
+    elem.nodes[2] = new Point(1, 0.25, 0.25);
+    elem.nodes[3] = new Point(1, 0., 0.25);
 }
 
 int main() {
-    //funcTest();
     GlobalData gData;
-    gData.getAllData("../Test1_4_4.txt");
+    gData.getAllData("../Data/Test1_4_4.txt");
     gData.printData();
     gData.printGridNodes();
     gData.printGridElems();
+
+    gData.gridCalculateHMatrixGlobal();
 
     return 0;
 }
