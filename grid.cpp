@@ -1,18 +1,23 @@
 #include "grid.h"
 
-Point::Point() {
+Node::Node(): Point() {
     id = 0;
     x = 0.0;
     y = 0.0;
     isOnEdge = false;
 }
-Point::Point(const uint32_t id, const double x, const double y) {
+
+Node::Node(const uint32_t id, const double x, const double y): Point(x, y) {
     this->id = id;
-    this->x = x;
-    this->y = y;
     this->isOnEdge = false;
 }
-std::ostream& operator<<(std::ostream& os, const Point& n){
+
+std::ostream & operator<<(std::ostream & os, const Point & p) {
+    os << "(" << p.x << ", " << p.y << ")";
+    return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const Node& n){
     os << n.id << ": (" << n.x << ", " << n.y << ") " << (n.isOnEdge ? "on edge" : "");
     return os;
 }
@@ -208,7 +213,7 @@ Grid::Grid(uint32_t const _nNodes, uint32_t const _nElems, uint32_t const _heigh
         std::cerr << "ERROR: Grid size is not square!" << std::endl;
         exit(1);
     }
-    nodes = new Point[nNodes];
+    nodes = new Node[nNodes];
     elems = new Element[nElems];
     hMatrix = SquareMatrix(nNodes);
 }

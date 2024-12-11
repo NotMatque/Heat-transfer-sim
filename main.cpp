@@ -11,13 +11,13 @@ using namespace std;
 void testFunc() {
     cout << "testFunc" << endl;
     Element elem = Element();
-    elem.nodes[0] = new Point(1, 0., 0.);
+    elem.nodes[0] = new Node(1, 0., 0.);
     elem.nodes[0]->isOnEdge = true;
-    elem.nodes[1] = new Point(1, 0.025, 0.);
+    elem.nodes[1] = new Node(1, 0.025, 0.);
     elem.nodes[1]->isOnEdge = true;
-    elem.nodes[2] = new Point(1, 0.025, 0.025);
+    elem.nodes[2] = new Node(1, 0.025, 0.025);
     elem.nodes[2]->isOnEdge = true;
-    elem.nodes[3] = new Point(1, 0., 0.025);
+    elem.nodes[3] = new Node(1, 0., 0.025);
     elem.nodes[3]->isOnEdge = true;
 
     elem.setIntergPoints(2);

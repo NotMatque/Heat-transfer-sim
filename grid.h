@@ -30,17 +30,20 @@ inline double dN3_dEta(double const ksi) { return 0.25 * (1 + ksi);}
 inline double dN4_dEta(double const ksi) { return 0.25 * (1 - ksi);}
 inline double (*dN_dEta[4])(double) {dN1_dEta, dN2_dEta, dN3_dEta, dN4_dEta};
 
-
-// Węzeł siatki o określonych koordynatach x, y
 struct Point {
+    double x, y;
+    Point(): x(0), y(0) {}
+    Point(double const x, double const y) : x(x), y(y) {}
+    friend std::ostream& operator<<(std::ostream&, const Point&);
+};
+// Węzeł siatki o określonych koordynatach x, y
+struct Node: Point {
     uint32_t id;
-    double x;
-    double y;
     bool isOnEdge;
 
-    Point();
-    Point(uint32_t, double, double);
-    friend std::ostream& operator<<(std::ostream&, const Point&);
+    Node();
+    Node(uint32_t, double, double);
+    friend std::ostream& operator<<(std::ostream&, const Node&);
 };
 
 // Element składający się z (N_NODES_PER_ELEMENT =) 4 węzłów
@@ -57,7 +60,7 @@ struct Element {
     SquareMatrix* jMatrix; // Macierze Jakobiego dla 2 lub 3 punktów całkowania
 public:
     uint32_t id;
-    Point* nodes[4]; // Tablica ze wskaźnikami na węzły // TODO: shared_ptr
+    Node* nodes[4]; // Tablica ze wskaźnikami na węzły // TODO: shared_ptr
     SquareMatrix hMatrix;
     SquareMatrix hbcMatrix;
 
@@ -82,7 +85,7 @@ struct Grid {
     uint32_t nElems; // Liczba elementów
     uint32_t height; // Wysokość siatki
     uint32_t width; // Szerokość siatki
-    Point *nodes; // Tablica węzłów // TODO: shared_ptr
+    Node *nodes; // Tablica węzłów // TODO: shared_ptr
     Element *elems; // Tablica elementów
     SquareMatrix hMatrix; // Macierz H globalna
 
