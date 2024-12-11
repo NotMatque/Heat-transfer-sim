@@ -16,6 +16,7 @@ inline double N1(double const ksi, double const eta) { return 0.25 * (1 - ksi) *
 inline double N2(double const ksi, double const eta) { return 0.25 * (1 + ksi) * (1 - eta);}
 inline double N3(double const ksi, double const eta) { return 0.25 * (1 + ksi) * (1 + eta);}
 inline double N4(double const ksi, double const eta) { return 0.25 * (1 - ksi) * (1 + eta);}
+inline double (*Nfunc[4])(double, double) {N1, N2, N3, N4};
 
 inline double dN1_dKsi(double const eta) { return -0.25 * (1 - eta);}
 inline double dN2_dKsi(double const eta) { return 0.25 * (1 - eta);}
@@ -47,12 +48,12 @@ struct Point {
 //   4---3
 //  /   /
 // 1---2
-class Element {
+struct Element {
     unsigned int nIntegrPoints; // Ilość punktów całkowania
     Point* integrPoints; // Tablica z punktami całkowania
-    double* integrPointWeight;
-    Point* integrSidePoints;// Tablica z punktami całkowania na boku
-    double* integrSidePointWeight;
+    double* integrPointWeights;
+    Point* sideIntegrPoints;// Tablica z punktami całkowania na boku
+    double* sideIntegrPointWeights;
     SquareMatrix* jMatrix; // Macierze Jakobiego dla 2 lub 3 punktów całkowania
 public:
     uint32_t id;

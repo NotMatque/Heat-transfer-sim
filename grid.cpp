@@ -25,12 +25,14 @@ Element::Element() { // TODO: Przy tworzeniu się elementu powinna być od razu 
     hbcMatrix = SquareMatrix(4);
     nIntegrPoints = 0;
     integrPoints = nullptr;
-    integrPointWeight = nullptr;
+    integrPointWeights = nullptr;
+    sideIntegrPoints = nullptr;
+    sideIntegrPointWeights = nullptr;
     jMatrix = nullptr;
 }
 Element::~Element() {
     delete[] integrPoints;
-    delete[] integrPointWeight;
+    delete[] integrPointWeights;
     delete[] jMatrix;
 }
 void Element::setIntergPoints(unsigned int nIntegrPoints) {
@@ -42,15 +44,15 @@ void Element::setIntergPoints(unsigned int nIntegrPoints) {
     // Tworzenie tablicy punktów całkowania
     this->nIntegrPoints = nIntegrPoints;
     integrPoints = new Point[nIntegrPoints * nIntegrPoints];
-    integrPointWeight = new double[nIntegrPoints * nIntegrPoints];
-    integrSidePoints = new Point[4 * nIntegrPoints];
-    integrSidePointWeight = new double[4 * nIntegrPoints];
+    integrPointWeights = new double[nIntegrPoints * nIntegrPoints];
+    sideIntegrPoints = new Point[4 * nIntegrPoints];
+    sideIntegrPointWeights = new double[4 * nIntegrPoints];
 
     // Tworzenie tablicy punktów całkowania
     switch (this->nIntegrPoints) {
         case 2: {
             // integrPoints[i]:
-            //   3---2
+            //   2---3
             //  /   /
             // 0---1
             double sq1_3 = sqrt(1./3.);
@@ -58,8 +60,19 @@ void Element::setIntergPoints(unsigned int nIntegrPoints) {
             for(int i = 0; i < pow(nIntegrPoints, 2); i++) {
                 integrPoints[i].x = coords[i % 2];
                 integrPoints[i].y = coords[i / 2];
-                integrPointWeight[i] = 1;
+                integrPointWeights[i] = 1;
             }
+            sideIntegrPoints[0].x = coords[0]; sideIntegrPoints[0].y = -1; sideIntegrPointWeights[0] = 1;
+            sideIntegrPoints[1].x = coords[1]; sideIntegrPoints[1].y = -1; sideIntegrPointWeights[1] = 1;
+
+            sideIntegrPoints[2].x = 1; sideIntegrPoints[2].y = coords[0]; sideIntegrPointWeights[2] = 1;
+            sideIntegrPoints[3].x = 1; sideIntegrPoints[3].y = coords[1]; sideIntegrPointWeights[3] = 1;
+
+            sideIntegrPoints[4].x = coords[1]; sideIntegrPoints[4].y = 1; sideIntegrPointWeights[4] = 1;
+            sideIntegrPoints[5].x = coords[0]; sideIntegrPoints[5].y = 1; sideIntegrPointWeights[5] = 1;
+
+            sideIntegrPoints[6].x = -1; sideIntegrPoints[6].y = coords[1]; sideIntegrPointWeights[6] = 1;
+            sideIntegrPoints[7].x = -1; sideIntegrPoints[7].y = coords[0]; sideIntegrPointWeights[7] = 1;
             break;
         }
         case 3: {
@@ -77,7 +90,7 @@ void Element::setIntergPoints(unsigned int nIntegrPoints) {
                 for(int j = 0; j < nIntegrPoints; j++) {
                     integrPoints[index].x = coords[j];
                     integrPoints[index].y = coords[i];
-                    integrPointWeight[index] = weights[j] * weights[i];
+                    integrPointWeights[index] = weights[j] * weights[i];
                     index++;
                 }
             break;
@@ -102,7 +115,7 @@ void Element::setIntergPoints(unsigned int nIntegrPoints) {
                 for(int j = 0; j < nIntegrPoints; j++) {
                     integrPoints[index].x = coords[j];
                     integrPoints[index].y = coords[i];
-                    integrPointWeight[index] = weights[j] * weights[i];
+                    integrPointWeights[index] = weights[j] * weights[i];
                     index++;
                 }
             break;
@@ -120,7 +133,7 @@ void Element::calculateJacobians() const {
         jMatrix[i](1, 1) = dN_dEta[0](integrPoints[i].x) * nodes[0]->y + dN_dEta[1](integrPoints[i].x) * nodes[1]->y + dN_dEta[2](integrPoints[i].x) * nodes[2]->y + dN_dEta[3](integrPoints[i].x) * nodes[3]->y;
     }
 }
-void Element::calculateH(double conductivity) const {
+void Element::calculateH(double const conductivity) const {
     calculateJacobians();
     for(unsigned int i = 0; i < nIntegrPoints * nIntegrPoints; i++) {
         double dN_dx[4]; // Dla PCi
@@ -148,8 +161,35 @@ void Element::calculateH(double conductivity) const {
 
         for(int j = 0; j < 4; j++)
             for(int k = 0; k < 4; k++)
-                hMatrix(j, k) += hMatrixIntegrPointI(j, k) * integrPointWeight[i];
+                hMatrix(j, k) += hMatrixIntegrPointI(j, k) * integrPointWeights[i];
     }
+}
+void Element::calculateHbc(double const alpha) const {
+    for(int side = 0; side < 4; side++) {
+        double detJ = sqrt(pow(nodes[side]->x - nodes[(side + 1) % 4]->x,2)
+            + pow(nodes[side]->y - nodes[(side + 1) % 4]->y,2)) / 2.;
+        SquareMatrix sideHbcMatrix(4);
+        for(int pci = 0; pci < nIntegrPoints; pci++) {
+            double Nvec[4];
+            for(int i = 0; i < 4; i++) {
+                Nvec[i] = Nfunc[i](sideIntegrPoints[nIntegrPoints * side + pci].x,
+                    sideIntegrPoints[nIntegrPoints * side + pci].y);
+                //std::cout << Nvec[i] << std::endl;
+            }
+
+
+            for(int i = 0; i < 4; i++)
+                for(int j = 0; j < 4; j++) {
+                    sideHbcMatrix(i, j) += Nvec[i] * Nvec[j]
+                    * sideIntegrPointWeights[nIntegrPoints * side + pci] * alpha * detJ;
+                }
+        }
+        //std::cout << sideHbcMatrix << std::endl;
+        for(int i = 0; i < 4; i++)
+            for(int j = 0; j < 4; j++)
+                hbcMatrix(i, j) += sideHbcMatrix(i, j);
+    }
+    //std::cout << hbcMatrix << std::endl;
 }
 std::ostream& operator<<(std::ostream& os, const Element& e) {
     os << e.id << "\n";
@@ -180,10 +220,11 @@ void Grid::calculateHMatrixGlobal(double conductivity, double alpha) const {
     for(int i = 0; i < nElems; i++) {
         elems[i].setIntergPoints(2); // TODO: Przenieść do konstruktora
         elems[i].calculateH(conductivity);
+        elems[i].calculateHbc(alpha);
 
         for(int j = 0; j < 4; j++)
             for(int k = 0; k < 4; k++)
-                hMatrix(elems[i].nodes[j]->id, elems[i].nodes[k]->id) += elems[i].hMatrix(j, k);
+                hMatrix(elems[i].nodes[j]->id, elems[i].nodes[k]->id) += elems[i].hMatrix(j, k) + elems[i].hbcMatrix(j, k);
     }
     std::cout << hMatrix << std::endl;
 }
