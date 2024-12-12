@@ -1,10 +1,10 @@
 #pragma once
 
+#include <array>
 #include <iostream>
 #include <cstdint>
 #include <fstream>
 #include <iomanip>
-#include <cmath>
 
 
 #include "matrix.h"
@@ -63,6 +63,7 @@ public:
     Node* nodes[4]; // Tablica ze wskaźnikami na węzły // TODO: shared_ptr
     SquareMatrix hMatrix;
     SquareMatrix hbcMatrix;
+    std::array<double,4> pVector {};
 
     Element();
     ~Element();
@@ -70,6 +71,7 @@ public:
     void calculateJacobians() const;
     void calculateH(double) const;
     void calculateHbc(double) const;
+    void calculateP(double, double);
     friend std::ostream& operator<<(std::ostream& os, const Element& e);
 };
 
@@ -88,10 +90,12 @@ struct Grid {
     Node *nodes; // Tablica węzłów // TODO: shared_ptr
     Element *elems; // Tablica elementów
     SquareMatrix hMatrix; // Macierz H globalna
+    double* pVector;
 
     Grid(uint32_t _nNodes, uint32_t _nElems, uint32_t _height, uint32_t _width);
     ~Grid();
     void calculateHMatrixGlobal(double, double) const;
+    void calculatePVectorGlobal(double, double) const;
 };
 
 class GlobalData {
@@ -117,7 +121,7 @@ public:
     void getOnlyData(const std::string &path);
     void getAllData(const std::string &path);
 
-    void gridCalculateHMatrixGlobal() const;
+    void runSimulation() const;
 
     void printData() const;
     void printGridNodes() const;

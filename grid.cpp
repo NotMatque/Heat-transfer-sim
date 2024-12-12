@@ -24,7 +24,7 @@ std::ostream& operator<<(std::ostream& os, const Node& n){
 
 Element::Element() { // TODO: Przy tworzeniu się elementu powinna być od razu ustalana ilość PC
     id = 0;
-    for(int i = 0; i < 4; i++)
+    for (int i = 0; i < 4; i++)
         nodes[i] = nullptr;
     hMatrix = SquareMatrix(4);
     hbcMatrix = SquareMatrix(4);
@@ -199,6 +199,26 @@ void Element::calculateHbc(double const alpha) const {
     }
     //std::cout << hbcMatrix << std::endl;
 }
+void Element::calculateP(double const alpha, double const ambTemperature) {
+    for(int side = 0; side < 4; side++) {
+        if(!nodes[side]->isOnEdge or !nodes[(side + 1) % 4]->isOnEdge)
+            continue;
+
+        double detJ = sqrt(pow(nodes[side]->x - nodes[(side + 1) % 4]->x,2)
+            + pow(nodes[side]->y - nodes[(side + 1) % 4]->y,2)) / 2.;
+        std::array<double, 4> sidePVector {};
+        for(int pci = 0; pci < nIntegrPoints; pci++) {
+            for(int i = 0; i < 4; i++) {
+                sidePVector[i] += Nfunc[i](sideIntegrPoints[nIntegrPoints * side + pci].x, sideIntegrPoints[nIntegrPoints * side + pci].y)
+                * sideIntegrPointWeights[nIntegrPoints * side + pci] * ambTemperature;
+            }
+        }
+        for(int i = 0; i < 4; i++) {
+            sidePVector[i] *= alpha * detJ;
+            pVector[i] += sidePVector[i];
+        }
+    }
+}
 std::ostream& operator<<(std::ostream& os, const Element& e) {
     os << e.id << "\n";
     for(uint32_t i = 0; i < N_NODES_PER_ELEMENT; i++) {
@@ -219,12 +239,13 @@ Grid::Grid(uint32_t const _nNodes, uint32_t const _nElems, uint32_t const _heigh
     nodes = new Node[nNodes];
     elems = new Element[nElems];
     hMatrix = SquareMatrix(nNodes);
+    pVector = new double[nElems];
 }
 Grid::~Grid() {
     delete[] nodes;
     delete[] elems;
 }
-void Grid::calculateHMatrixGlobal(double conductivity, double alpha) const {
+void Grid::calculateHMatrixGlobal(double const conductivity, double const alpha) const {
     for(int i = 0; i < nElems; i++) {
         elems[i].setIntergPoints(2); // TODO: Przenieść do konstruktora
         elems[i].calculateH(conductivity);
@@ -234,7 +255,15 @@ void Grid::calculateHMatrixGlobal(double conductivity, double alpha) const {
             for(int k = 0; k < 4; k++)
                 hMatrix(elems[i].nodes[j]->id, elems[i].nodes[k]->id) += elems[i].hMatrix(j, k) + elems[i].hbcMatrix(j, k);
     }
-    std::cout << hMatrix << std::endl;
+    std::cout << "Hmatrix:\n" << hMatrix << std::endl;
+}
+
+void Grid::calculatePVectorGlobal(double const alpha, double const ambTemp) const {
+    for(int i = 0; i < nElems; i++) {
+        elems[i].calculateP(alpha, ambTemp);
+        for(int j = 0; j < 4; j++)
+            pVector[elems[i].nodes[j]->id] += elems[i].pVector[j];
+    }
 }
 
 void GlobalData::checkDataTag(std::fstream* file, std::string const curr, const std::string expected) {
@@ -437,6 +466,7 @@ void GlobalData::printGridElems() const{
         std::cout << grid->elems[i] << "\n";
 }
 
-void GlobalData::gridCalculateHMatrixGlobal() const {
+void GlobalData::runSimulation() const {
     grid->calculateHMatrixGlobal(this->conductivity, this->alpha);
+    grid->calculatePVectorGlobal(this->alpha, this->tot);
 }
