@@ -40,7 +40,7 @@ Element::~Element() {
     delete[] integrPointWeights;
     delete[] jMatrix;
 }
-void Element::setIntergPoints(unsigned int nIntegrPoints) {
+void Element::setIntergPoints(unsigned int const nIntegrPoints) {
     if(nIntegrPoints != 2 and nIntegrPoints != 3 and nIntegrPoints != 4) {
         std::cerr << "ERROR!\nWrong number of integration Points\n" << std::endl;
         exit(1);
@@ -171,8 +171,12 @@ void Element::calculateH(double const conductivity) const {
 }
 void Element::calculateHbc(double const alpha) const {
     for(int side = 0; side < 4; side++) {
+        if(!nodes[side]->isOnEdge or !nodes[(side + 1) % 4]->isOnEdge)
+            continue;
+
         double detJ = sqrt(pow(nodes[side]->x - nodes[(side + 1) % 4]->x,2)
             + pow(nodes[side]->y - nodes[(side + 1) % 4]->y,2)) / 2.;
+
         SquareMatrix sideHbcMatrix(4);
         for(int pci = 0; pci < nIntegrPoints; pci++) {
             double Nvec[4];
@@ -181,7 +185,6 @@ void Element::calculateHbc(double const alpha) const {
                     sideIntegrPoints[nIntegrPoints * side + pci].y);
                 //std::cout << Nvec[i] << std::endl;
             }
-
 
             for(int i = 0; i < 4; i++)
                 for(int j = 0; j < 4; j++) {
