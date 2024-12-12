@@ -85,7 +85,6 @@ double & SquareMatrix::operator()(unsigned int row, unsigned int col) const {
 }
 
 std::ostream & operator<<(std::ostream &os, const SquareMatrix &n) {
-    os << "Matrix:" << std::endl;
     for(uint32_t i = 0; i < n.size; i++) {
         for(uint32_t j = 0; j < n.size; j++) {
             os << n.matrix[i][j] << " ";
