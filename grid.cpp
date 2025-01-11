@@ -239,7 +239,8 @@ Grid::Grid(uint32_t const _nNodes, uint32_t const _nElems, uint32_t const _heigh
     nodes = new Node[nNodes];
     elems = new Element[nElems];
     hMatrix = SquareMatrix(nNodes);
-    pVector = new double[nElems];
+    pVector = new double[nNodes] {0};
+    tVector = new double[nNodes] {0};
 }
 Grid::~Grid() {
     delete[] nodes;
@@ -259,10 +260,40 @@ void Grid::calculateHMatrixGlobal(double const conductivity, double const alpha)
 }
 
 void Grid::calculatePVectorGlobal(double const alpha, double const ambTemp) const {
+    // Agregacja do jednego globalnego wektora {P}
     for(int i = 0; i < nElems; i++) {
         elems[i].calculateP(alpha, ambTemp);
         for(int j = 0; j < 4; j++)
             pVector[elems[i].nodes[j]->id] += elems[i].pVector[j];
+    }
+
+void Grid::calculateTVector() {
+    // Gaussian elimination
+    SquareMatrix tMatrix(nNodes);
+    tMatrix = hMatrix;
+
+    auto *change = new unsigned int[nNodes];
+    for(int i = 0; i < nNodes; i++)
+        change[i] = i;
+
+    // Elimination
+    for(int i = 0; i < nNodes - 1; i++) {
+        int iMax = 0; // TODO: Gauss-Crout, albo lepiej
+
+        for(int j = i + 1; j < nNodes; j++) {
+            double ratio = hMatrix(j,i) / hMatrix(i,i);
+            for(int k = i; k < nNodes; k++)
+                tMatrix(j,k) -= ratio * hMatrix(i,k);
+            pVector[j] -= ratio * pVector[i];
+        }
+    }
+
+    // Calculating values of x
+    for(int i = nNodes - 1; i >= 0; i--) {
+        tVector[i] = pVector[i];
+        for(int j = i + 1; j < nNodes; j++)
+            tVector[i] -= hMatrix(i,j) * tVector[j];
+        tVector[i] /= hMatrix(i,i);
     }
 }
 
@@ -469,4 +500,5 @@ void GlobalData::printGridElems() const{
 void GlobalData::runSimulation() const {
     grid->calculateHMatrixGlobal(this->conductivity, this->alpha);
     grid->calculatePVectorGlobal(this->alpha, this->tot);
+    grid->calculateTVector();
 }
