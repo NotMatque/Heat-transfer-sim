@@ -31,14 +31,17 @@ void presentationFunc() {
     }
 
     elem.calculateH(300.); // conductivity = 300.0
-    std::cout << "H Matrix:" << endl << elem.hMatrix << endl;
+    std::cout << "[H] Matrix:" << endl << elem.hMatrix << endl;
     elem.calculateHbc(25.); // alpha = 25.0
-    std::cout << "H BC Matrix:" << endl << elem.hbcMatrix << endl;
+    std::cout << "[H_BC] Matrix:" << endl << elem.hbcMatrix << endl;
     elem.calculateP(25., 1200.); // alpha = 25.0; ambientTemperature = 1200
-    std::cout << "P vector:" << endl;
+    std::cout << "{P} vector:" << endl;
     for(int i = 0; i < 4; i++)
         std::cout << elem.pVector[i] << " ";
     std::cout << endl;
+    elem.calculateC(700.0, 7800.);
+    std::cout << "[C] Matrix:" << std::endl << elem.cMatrix << std::endl;
+
 }
 
 void mainProgram() {

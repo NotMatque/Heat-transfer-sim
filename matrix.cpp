@@ -80,7 +80,7 @@ SquareMatrix SquareMatrix::operator*(const double& n) const {
     return result;
 }
 
-double & SquareMatrix::operator()(unsigned int row, unsigned int col) const {
+double & SquareMatrix::operator()(const unsigned int row, const unsigned int col) const {
     return matrix[row][col];
 }
 

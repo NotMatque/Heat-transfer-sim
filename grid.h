@@ -63,6 +63,7 @@ public:
     Node *nodes[4]; // Tablica ze wskaźnikami na węzły // TODO: shared_ptr
     SquareMatrix hMatrix;
     SquareMatrix hbcMatrix;
+    SquareMatrix cMatrix;
     std::array<double, 4> pVector{};
 
     Element();
@@ -72,6 +73,7 @@ public:
     void calculateH(double) const;
     void calculateHbc(double) const;
     void calculateP(double, double);
+    void calculateC(double, double);
     friend std::ostream &operator<<(std::ostream &os, const Element &e);
 };
 
@@ -90,13 +92,17 @@ struct Grid {
     Node *nodes; // Tablica węzłów // TODO: shared_ptr
     Element *elems; // Tablica elementów
     SquareMatrix hMatrix; // Macierz H globalna
+    SquareMatrix cMatrix;
     double *pVector, *tVector;
 
     Grid(uint32_t _nNodes, uint32_t _nElems, uint32_t _height, uint32_t _width);
     ~Grid();
     void calculateHMatrixGlobal(double, double) const;
     void calculatePVectorGlobal(double, double) const;
-    void calculateTVector();
+    void calculateCMatrixGlobal(double, double) const;
+    void calculateTVector(double);
+
+    void clearAllCalculations();
 };
 
 class GlobalData {
@@ -104,7 +110,7 @@ class GlobalData {
     double simStepTime;
     double conductivity;
     double alpha;
-    double tot;
+    double ambientTemp;
     double initTemp;
     double density;
     double specificHeat;
@@ -121,6 +127,7 @@ public:
 
     void getOnlyData(const std::string &path);
     void getAllData(const std::string &path);
+    void checkIfDataIsLoaded() const;
 
     void runSimulation() const;
 

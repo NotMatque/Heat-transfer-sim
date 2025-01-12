@@ -22,12 +22,13 @@ std::ostream& operator<<(std::ostream& os, const Node& n){
     return os;
 }
 
-Element::Element() { // TODO: Przy tworzeniu się elementu powinna być od razu ustalana ilość PC
+Element::Element() {
     id = 0;
     for (int i = 0; i < 4; i++)
         nodes[i] = nullptr;
     hMatrix = SquareMatrix(4);
     hbcMatrix = SquareMatrix(4);
+    cMatrix = SquareMatrix(4);
     nIntegrPoints = 0;
     integrPoints = nullptr;
     integrPointWeights = nullptr;
@@ -218,7 +219,26 @@ void Element::calculateP(double const alpha, double const ambTemperature) {
             pVector[i] += sidePVector[i];
         }
     }
+    // Testowe wypisanie:
+    std::cout << "Element: " << id << std::endl;
+    for(int i = 0; i < 4; i++)
+        std::cout << pVector[i] << std::endl;
 }
+void Element::calculateC(double const specificHeat, double const density) {
+    for(unsigned int i = 0; i < nIntegrPoints * nIntegrPoints; i++) {
+        double detJ = jMatrix[i].det();
+
+        SquareMatrix cMatrixIntegrPointI(4);
+        for(int j = 0; j < 4; j++)
+            for(int k = 0; k < 4; k++)
+                cMatrixIntegrPointI(j,k) = specificHeat * density * detJ * Nfunc[j](integrPoints[i].x, integrPoints[i].y) * Nfunc[k](integrPoints[i].x, integrPoints[i].y);
+
+        for(int j = 0; j < 4; j++)
+            for(int k = 0; k < 4; k++)
+                cMatrix(j, k) += cMatrixIntegrPointI(j, k) * integrPointWeights[i];
+    }
+}
+
 std::ostream& operator<<(std::ostream& os, const Element& e) {
     os << e.id << "\n";
     for(uint32_t i = 0; i < N_NODES_PER_ELEMENT; i++) {
@@ -238,7 +258,10 @@ Grid::Grid(uint32_t const _nNodes, uint32_t const _nElems, uint32_t const _heigh
     }
     nodes = new Node[nNodes];
     elems = new Element[nElems];
+    for(int i = 0; i < nElems; i++)
+        elems[i].setIntergPoints(2);
     hMatrix = SquareMatrix(nNodes);
+    cMatrix = SquareMatrix(nNodes);
     pVector = new double[nNodes] {0};
     tVector = new double[nNodes] {0};
 }
@@ -248,7 +271,6 @@ Grid::~Grid() {
 }
 void Grid::calculateHMatrixGlobal(double const conductivity, double const alpha) const {
     for(int i = 0; i < nElems; i++) {
-        elems[i].setIntergPoints(2); // TODO: Przenieść do konstruktora
         elems[i].calculateH(conductivity);
         elems[i].calculateHbc(alpha);
 
@@ -256,29 +278,43 @@ void Grid::calculateHMatrixGlobal(double const conductivity, double const alpha)
             for(int k = 0; k < 4; k++)
                 hMatrix(elems[i].nodes[j]->id, elems[i].nodes[k]->id) += elems[i].hMatrix(j, k) + elems[i].hbcMatrix(j, k);
     }
-    std::cout << "Hmatrix:\n" << hMatrix << std::endl;
-}
 
+    // wypis
+    std::cout << "[H] matrix:\n" << hMatrix << std::endl;
+}
 void Grid::calculatePVectorGlobal(double const alpha, double const ambTemp) const {
-    // Agregacja do jednego globalnego wektora {P}
+    // Creating global vector {P}
     for(int i = 0; i < nElems; i++) {
         elems[i].calculateP(alpha, ambTemp);
         for(int j = 0; j < 4; j++)
             pVector[elems[i].nodes[j]->id] += elems[i].pVector[j];
     }
+}
+void Grid::calculateCMatrixGlobal(double const specificHeat, double const density) const {
+    for(int i = 0; i < nElems; i++) {
+        elems[i].calculateC(specificHeat, density);
 
-void Grid::calculateTVector() {
+        for(int j = 0; j < 4; j++)
+            for(int k = 0; k < 4; k++)
+                cMatrix(elems[i].nodes[j]->id, elems[i].nodes[k]->id) += elems[i].cMatrix(j, k);
+    }
+
+    //wypis
+    std::cout << "[C] matrix:\n" << cMatrix << std::endl;
+}
+void Grid::calculateTVector(double stepTime) {
     // Gaussian elimination
     SquareMatrix tMatrix(nNodes);
     tMatrix = hMatrix;
 
+    // Preparation for Crout (not implemented)
     auto *change = new unsigned int[nNodes];
     for(int i = 0; i < nNodes; i++)
         change[i] = i;
 
     // Elimination
     for(int i = 0; i < nNodes - 1; i++) {
-        int iMax = 0; // TODO: Gauss-Crout, albo lepiej
+        int iMax = 0; // TODO: Gauss-Crout or better
 
         for(int j = i + 1; j < nNodes; j++) {
             double ratio = hMatrix(j,i) / hMatrix(i,i);
@@ -295,7 +331,24 @@ void Grid::calculateTVector() {
             tVector[i] -= hMatrix(i,j) * tVector[j];
         tVector[i] /= hMatrix(i,i);
     }
+
+    // Wydruk kontrolny
+    std::cout << "{T} vector:\n";
+    for(int i = 0; i < nNodes; i++)
+        std::cout << tVector[i] << std::endl;
+
+    delete[] change;
 }
+void Grid::clearAllCalculations() {
+    hMatrix = SquareMatrix(nNodes);
+    cMatrix = SquareMatrix(nNodes);
+    for(int i = 0; i < nNodes; i++)
+        pVector[i] = 0;
+    for(int i = 0; i < nNodes; i++)
+        tVector[i] = 0;
+
+}
+
 
 void GlobalData::checkDataTag(std::fstream* file, std::string const curr, const std::string expected) {
     if(curr != expected) {
@@ -309,7 +362,7 @@ GlobalData::GlobalData() {
     simStepTime = 0.0;
     conductivity = 0.0;
     alpha = 0.0;
-    tot = 0.0;
+    ambientTemp = 0.0;
     initTemp = 0.0;
     density = 0.0;
     specificHeat = 0.0;
@@ -354,11 +407,11 @@ void GlobalData::getOnlyData(const std::string &path) {
     file  >> tempString;
     alpha = stod(tempString);
 
-    // === Tot ===
+    // === Ambient temperature ===
     file >> tempString;
-    checkDataTag(&file, tempString, "Tot");
+    checkDataTag(&file, tempString, "AmbientTemp");
     file  >> tempString;
-    tot = stod(tempString);
+    ambientTemp = stod(tempString);
 
     // === Initial temperature ===
     file >> tempString;
@@ -469,13 +522,21 @@ void GlobalData::getAllData(const std::string &path) {
 
     file.close();
 }
+
+void GlobalData::checkIfDataIsLoaded() const {
+    if(grid == nullptr) {
+        std::cerr << "ERROR: grid is null" << std::endl;
+        exit(1);
+    }
+}
+
 // Wypisuje do konsoli wczytane dane
 void GlobalData::printData() const {
     std::cout << "\nGlobal Data:\nSimulation time: " << simTime << " [s]\n";
     std::cout << "Simulation step time: " << simStepTime << " [s]\n";
     std::cout << "Conductivity: " << conductivity << " [W/(mK)]\n";
     std::cout << "Alpha: " << alpha << "\n";
-    std::cout << "Tot: " << tot << "\n";
+    std::cout << "Ambient temperature: " << ambientTemp << "[K]\n";
     std::cout << "Initial temperature: " << initTemp << " [K]\n";
     std::cout << "Density: " << density << " [kg/m^3]\n";
     std::cout << "Specific heat: " << specificHeat << "\n";
@@ -498,7 +559,13 @@ void GlobalData::printGridElems() const{
 }
 
 void GlobalData::runSimulation() const {
-    grid->calculateHMatrixGlobal(this->conductivity, this->alpha);
-    grid->calculatePVectorGlobal(this->alpha, this->tot);
-    grid->calculateTVector();
+    checkIfDataIsLoaded();
+
+    //for(double i = 0; i <= simTime; i += simStepTime) {
+        grid->clearAllCalculations();
+        grid->calculateHMatrixGlobal(this->conductivity, this->alpha);
+        grid->calculatePVectorGlobal(this->alpha, this->ambientTemp);
+        grid->calculateCMatrixGlobal(this->specificHeat, this->density);
+        grid->calculateTVector(this->simStepTime);
+    //}
 }
