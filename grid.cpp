@@ -68,17 +68,22 @@ void Element::setIntergPoints(unsigned int const nIntegrPoints) {
                 integrPoints[i].y = coords[i / 2];
                 integrPointWeights[i] = 1;
             }
-            sideIntegrPoints[0].x = coords[0]; sideIntegrPoints[0].y = -1; sideIntegrPointWeights[0] = 1;
-            sideIntegrPoints[1].x = coords[1]; sideIntegrPoints[1].y = -1; sideIntegrPointWeights[1] = 1;
-
-            sideIntegrPoints[2].x = 1; sideIntegrPoints[2].y = coords[0]; sideIntegrPointWeights[2] = 1;
-            sideIntegrPoints[3].x = 1; sideIntegrPoints[3].y = coords[1]; sideIntegrPointWeights[3] = 1;
-
-            sideIntegrPoints[4].x = coords[1]; sideIntegrPoints[4].y = 1; sideIntegrPointWeights[4] = 1;
-            sideIntegrPoints[5].x = coords[0]; sideIntegrPoints[5].y = 1; sideIntegrPointWeights[5] = 1;
-
-            sideIntegrPoints[6].x = -1; sideIntegrPoints[6].y = coords[1]; sideIntegrPointWeights[6] = 1;
-            sideIntegrPoints[7].x = -1; sideIntegrPoints[7].y = coords[0]; sideIntegrPointWeights[7] = 1;
+            for (int i = 0; i < 8; i++) {
+                if (i < 2) { // Dół (y = -1)
+                    sideIntegrPoints[i].x = coords[i];
+                    sideIntegrPoints[i].y = -1;
+                } else if (i < 4) { // Prawa strona (x = 1)
+                    sideIntegrPoints[i].x = 1;
+                    sideIntegrPoints[i].y = coords[i - 2];
+                } else if (i < 6) { // Góra (y = 1)
+                    sideIntegrPoints[i].x = coords[5 - i];
+                    sideIntegrPoints[i].y = 1;
+                } else { // Lewa strona (x = -1)
+                    sideIntegrPoints[i].x = -1;
+                    sideIntegrPoints[i].y = coords[7 - i];
+                }
+                sideIntegrPointWeights[i] = 1;
+            }
             break;
         }
         case 3: {
@@ -99,6 +104,23 @@ void Element::setIntergPoints(unsigned int const nIntegrPoints) {
                     integrPointWeights[index] = weights[j] * weights[i];
                     index++;
                 }
+
+            for (int i = 0; i < 4 * nIntegrPoints; i++) {
+                if (i < 3) { // Dół (y = -1)
+                    sideIntegrPoints[i].x = coords[i];
+                    sideIntegrPoints[i].y = -1;
+                } else if (i < 6) { // Prawa strona (x = 1)
+                    sideIntegrPoints[i].x = 1;
+                    sideIntegrPoints[i].y = coords[i - 3];
+                } else if (i < 9) { // Góra (y = 1)
+                    sideIntegrPoints[i].x = coords[8 - i];
+                    sideIntegrPoints[i].y = 1;
+                } else { // Lewa strona (x = -1)
+                    sideIntegrPoints[i].x = -1;
+                    sideIntegrPoints[i].y = coords[11 - i];
+                }
+                sideIntegrPointWeights[i] = weights[i % 3];
+            }
             break;
         }
         case 4: {
@@ -124,6 +146,23 @@ void Element::setIntergPoints(unsigned int const nIntegrPoints) {
                     integrPointWeights[index] = weights[j] * weights[i];
                     index++;
                 }
+
+            for (int i = 0; i < 4 * nIntegrPoints; ++i) {
+                if (i < 4) { // Dół (y = -1)
+                    sideIntegrPoints[i].x = coords[i];
+                    sideIntegrPoints[i].y = -1;
+                } else if (i < 8) { // Prawa strona (x = 1)
+                    sideIntegrPoints[i].x = 1;
+                    sideIntegrPoints[i].y = coords[i - 4];
+                } else if (i < 12) { // Góra (y = 1)
+                    sideIntegrPoints[i].x = coords[11 - i];
+                    sideIntegrPoints[i].y = 1;
+                } else { // Lewa strona (x = -1)
+                    sideIntegrPoints[i].x = -1;
+                    sideIntegrPoints[i].y = coords[15 - i];
+                }
+                sideIntegrPointWeights[i] = weights[i % 4];
+            }
             break;
         }
     }
