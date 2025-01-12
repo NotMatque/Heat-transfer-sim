@@ -282,18 +282,20 @@ std::ostream& operator<<(std::ostream& os, const Element& e) {
     return os;
 }
 
-Grid::Grid(uint32_t const _nNodes, uint32_t const _nElems, uint32_t const _height, uint32_t const _width) {
+Grid::Grid(uint32_t const _nNodes, uint32_t const _nElems, double const initTemp) {
     nNodes = _nNodes;
     nElems = _nElems;
 
     nodes = new Node[nNodes];
     elems = new Element[nElems];
     for(int i = 0; i < nElems; i++)
-        elems[i].setIntergPoints(2);
+        elems[i].setIntergPoints(4);
     hMatrix = SquareMatrix(nNodes);
     cMatrix = SquareMatrix(nNodes);
-    pVector = new double[nNodes] {0};
-    tVector = new double[nNodes] {0};
+    pVector = new double[nNodes];
+    tVector = new double[nNodes];
+    for(int i = 0; i < nNodes; i++)
+        tVector[i] = initTemp;
 }
 Grid::~Grid() {
     delete[] nodes;
@@ -333,33 +335,40 @@ void Grid::calculateCMatrixGlobal(double const specificHeat, double const densit
     std::cout << "[C] matrix:\n" << cMatrix << std::endl;
 }
 void Grid::calculateTVector(double stepTime) {
-    // Gaussian elimination
-    SquareMatrix tMatrix(nNodes);
-    tMatrix = hMatrix;
+    // Preparing data
+    SquareMatrix hTransientMatrix(nNodes);
+    for(size_t i = 0; i < hTransientMatrix.getSize(); i++)
+        for(size_t j = 0; j < hTransientMatrix.getSize(); j++)
+            hTransientMatrix(i, j) = hMatrix(i, j) + cMatrix(i, j) / stepTime;
+
+    for(int i = 0; i < nNodes; i++) {
+        for(int j = 0; j < nNodes; j++)
+            pVector[i] += cMatrix(i, j) / stepTime * tVector[j];
+    }
 
     // Preparation for Crout (not implemented)
     auto *change = new unsigned int[nNodes];
     for(int i = 0; i < nNodes; i++)
         change[i] = i;
 
-    // Elimination
+    // Gaussian elimination
     for(int i = 0; i < nNodes - 1; i++) {
         int iMax = 0; // TODO: Gauss-Crout or better
 
         for(int j = i + 1; j < nNodes; j++) {
-            double ratio = hMatrix(j,i) / hMatrix(i,i);
+            double ratio = hTransientMatrix(j,i) / hTransientMatrix(i,i);
             for(int k = i; k < nNodes; k++)
-                tMatrix(j,k) -= ratio * hMatrix(i,k);
+                hTransientMatrix(j,k) -= ratio * hTransientMatrix(i,k);
             pVector[j] -= ratio * pVector[i];
         }
     }
 
-    // Calculating values of x
+    // Calculating values of tVector
     for(int i = nNodes - 1; i >= 0; i--) {
         tVector[i] = pVector[i];
         for(int j = i + 1; j < nNodes; j++)
-            tVector[i] -= hMatrix(i,j) * tVector[j];
-        tVector[i] /= hMatrix(i,i);
+            tVector[i] -= hTransientMatrix(i,j) * tVector[j];
+        tVector[i] /= hTransientMatrix(i,i);
     }
 
     // Wydruk kontrolny
@@ -374,9 +383,6 @@ void Grid::clearAllCalculations() {
     cMatrix = SquareMatrix(nNodes);
     for(int i = 0; i < nNodes; i++)
         pVector[i] = 0;
-    for(int i = 0; i < nNodes; i++)
-        tVector[i] = 0;
-
 }
 
 
@@ -396,8 +402,6 @@ GlobalData::GlobalData() {
     initTemp = 0.0;
     density = 0.0;
     specificHeat = 0.0;
-    gridHeight = 0;
-    gridWidth = 0;
     nNodes = 0;
     nElems = 0;
     grid = nullptr;
@@ -473,18 +477,6 @@ void GlobalData::getOnlyData(const std::string &path) {
     file  >> tempString;
     nElems = stoi(tempString);
 
-    // === Height of the grid ===
-    file >> tempString;
-    checkDataTag(&file, tempString, "GridHeight");
-    file  >> tempString;
-    gridHeight = stoi(tempString);
-
-    // === Width of the grid
-    file >> tempString;
-    checkDataTag(&file, tempString, "GridWidth");
-    file  >> tempString;
-    gridWidth = stoi(tempString);
-
     file.close();
 }
 // Wczytuje wszystkie dane z pliku
@@ -500,11 +492,11 @@ void GlobalData::getAllData(const std::string &path) {
         exit(1);
     }
 
-    for(int i = 0; i < 24; i++)
+    for(int i = 0; i < 20; i++)
         file >> ignoreMe;
 
     // Wczytywanie węzłów
-    grid = new Grid(nNodes, nElems, gridHeight, gridWidth);
+    grid = new Grid(nNodes, nElems, initTemp);
     file >> ignoreMe;
     checkDataTag(&file, ignoreMe, "*Node");
     for(uint32_t i = 0; i < nNodes; i++) {
@@ -572,8 +564,6 @@ void GlobalData::printData() const {
     std::cout << "Specific heat: " << specificHeat << "\n";
     std::cout << "Number of nodes: " << nNodes << "\n";
     std::cout << "Number of elements: " << nElems << "\n";
-    std::cout << "Grid height: " << gridHeight << "\n";
-    std::cout << "Grid width: " << gridWidth << "\n";
 }
 // Wypisuje koordynaty wszystkich węzłów siatki MES
 void GlobalData::printGridNodes() const{
@@ -591,11 +581,11 @@ void GlobalData::printGridElems() const{
 void GlobalData::runSimulation() const {
     checkIfDataIsLoaded();
 
-    //for(double i = 0; i <= simTime; i += simStepTime) {
+    for(double i = 0; i <= simTime; i += simStepTime) {
         grid->clearAllCalculations();
         grid->calculateHMatrixGlobal(this->conductivity, this->alpha);
         grid->calculatePVectorGlobal(this->alpha, this->ambientTemp);
         grid->calculateCMatrixGlobal(this->specificHeat, this->density);
         grid->calculateTVector(this->simStepTime);
-    //}
+    }
 }
