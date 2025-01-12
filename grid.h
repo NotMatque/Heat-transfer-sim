@@ -1,10 +1,8 @@
 #pragma once
 
 #include <array>
-#include <iostream>
 #include <cstdint>
 #include <fstream>
-#include <iomanip>
 
 
 #include "matrix.h"
@@ -95,7 +93,7 @@ struct Grid {
     SquareMatrix cMatrix;
     double *pVector, *tVector;
 
-    Grid(uint32_t _nNodes, uint32_t _nElems, uint32_t _height, uint32_t _width);
+    Grid(uint32_t _nNodes, uint32_t _nElems, double initTemp);
     ~Grid();
     void calculateHMatrixGlobal(double, double) const;
     void calculatePVectorGlobal(double, double) const;
@@ -114,8 +112,6 @@ class GlobalData {
     double initTemp;
     double density;
     double specificHeat;
-    uint32_t gridHeight;
-    uint32_t gridWidth;
     uint32_t nNodes;
     uint32_t nElems;
     Grid *grid;

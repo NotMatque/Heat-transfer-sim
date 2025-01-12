@@ -258,10 +258,6 @@ void Element::calculateP(double const alpha, double const ambTemperature) {
             pVector[i] += sidePVector[i];
         }
     }
-    // Testowe wypisanie:
-    std::cout << "Element: " << id << std::endl;
-    for(int i = 0; i < 4; i++)
-        std::cout << pVector[i] << std::endl;
 }
 void Element::calculateC(double const specificHeat, double const density) {
     for(unsigned int i = 0; i < nIntegrPoints * nIntegrPoints; i++) {
@@ -289,12 +285,7 @@ std::ostream& operator<<(std::ostream& os, const Element& e) {
 Grid::Grid(uint32_t const _nNodes, uint32_t const _nElems, uint32_t const _height, uint32_t const _width) {
     nNodes = _nNodes;
     nElems = _nElems;
-    height = _height;
-    width = _width;
-    if(height*width != nNodes) {
-        std::cerr << "ERROR: Grid size is not square!" << std::endl;
-        exit(1);
-    }
+
     nodes = new Node[nNodes];
     elems = new Element[nElems];
     for(int i = 0; i < nElems; i++)
