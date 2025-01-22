@@ -578,14 +578,35 @@ void GlobalData::printGridElems() const{
         std::cout << grid->elems[i] << "\n";
 }
 
+void GlobalData::saveToFile(unsigned int const step) const {
+    std::fstream file;
+    std::string path = "../results/step" + std::to_string(step) + ".txt";
+
+    file.open(path, std::ios::out | std::ios::trunc);
+
+    if (!file.is_open()) {
+        std::cerr << "ERROR: Could not open file " << path << std::endl;
+        exit(1);
+    }
+
+    for (uint32_t i = 0; i < nNodes; i++) {
+        file << grid->tVector[i] << std::endl;
+    }
+
+    file.close();
+}
+
+
 void GlobalData::runSimulation() const {
     checkIfDataIsLoaded();
 
-    for(double i = 0; i <= simTime; i += simStepTime) {
+    int steps = simTime / simStepTime;
+    for(unsigned int i = 0; i <= steps; i++) {
         grid->clearAllCalculations();
         grid->calculateHMatrixGlobal(this->conductivity, this->alpha);
         grid->calculatePVectorGlobal(this->alpha, this->ambientTemp);
         grid->calculateCMatrixGlobal(this->specificHeat, this->density);
         grid->calculateTVector(this->simStepTime);
+        saveToFile(i);
     }
 }

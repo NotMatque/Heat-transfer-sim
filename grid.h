@@ -130,4 +130,6 @@ public:
     void printData() const;
     void printGridNodes() const;
     void printGridElems() const;
+
+    void saveToFile(unsigned int) const;
 };
