@@ -1,5 +1,9 @@
 #include "grid.h"
 
+#include <algorithm>
+#include <iomanip>
+#include <sstream>
+
 Node::Node(): Point() {
     id = 0;
     x = 0.0;
@@ -370,12 +374,6 @@ void Grid::calculateTVector(double stepTime) {
             tVector[i] -= hTransientMatrix(i,j) * tVector[j];
         tVector[i] /= hTransientMatrix(i,i);
     }
-
-    // Wydruk kontrolny
-    std::cout << "{T} vector:\n";
-    for(int i = 0; i < nNodes; i++)
-        std::cout << tVector[i] << std::endl;
-
     delete[] change;
 }
 void Grid::clearAllCalculations() {
@@ -534,13 +532,16 @@ void GlobalData::getAllData(const std::string &path) {
     // Ustawianie węzłów na granicy
     file >> ignoreMe;
     checkDataTag(&file, ignoreMe, "*BC");
-    for(int i = 0; i < 11; i++) {
+    do {
         file >> ignoreMe;
-        ignoreMe.pop_back();
-        grid->nodes[stoi(ignoreMe) - 1].isOnEdge = true;
-    }
-    file >> ignoreMe;
-    grid->nodes[stoi(ignoreMe) - 1].isOnEdge = true;
+        if (ignoreMe.back() == ',') {
+            ignoreMe.pop_back();
+            grid->nodes[std::stoi(ignoreMe) - 1].isOnEdge = true;
+        } else {
+            grid->nodes[std::stoi(ignoreMe) - 1].isOnEdge = true;
+            break;
+        }
+    } while (true);
 
     file.close();
 }
@@ -590,7 +591,8 @@ void GlobalData::saveToFile(unsigned int const step) const {
     }
 
     for (uint32_t i = 0; i < nNodes; i++) {
-        file << grid->tVector[i] << std::endl;
+        std::cout << std::setprecision(FLOATING_POINT_PRECISION) << grid->tVector[i] << std::endl;
+        file << std::setprecision(FLOATING_POINT_PRECISION) << grid->tVector[i] << std::endl;
     }
 
     file.close();
