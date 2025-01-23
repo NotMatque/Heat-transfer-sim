@@ -10,7 +10,6 @@ Node::Node(): Point() {
     y = 0.0;
     isOnEdge = false;
 }
-
 Node::Node(const uint32_t id, const double x, const double y): Point(x, y) {
     this->id = id;
     this->isOnEdge = false;
@@ -20,7 +19,6 @@ std::ostream & operator<<(std::ostream & os, const Point & p) {
     os << "(" << p.x << ", " << p.y << ")";
     return os;
 }
-
 std::ostream& operator<<(std::ostream& os, const Node& n){
     os << n.id << ": (" << n.x << ", " << n.y << ") " << (n.isOnEdge ? "on edge" : "");
     return os;
@@ -197,7 +195,6 @@ void Element::calculateH(double const conductivity) const {
         for(int j = 0; j < 4; j++) {
             dN_dx[j] = invJacobianMatrix(0, 0) * dN_dKsi[j](integrPoints[i].y) + invJacobianMatrix(0, 1) * dN_dEta[j](integrPoints[i].x);
             dN_dy[j] = invJacobianMatrix(1, 0) * dN_dKsi[j](integrPoints[i].y) + invJacobianMatrix(1, 1) * dN_dEta[j](integrPoints[i].x);
-            //std::cout << "PC" << i << ": " << dN_dx[j] << " " << dN_dy[j] << std::endl;
         }
 
         // Wyznaczamy H_PCi
@@ -206,7 +203,6 @@ void Element::calculateH(double const conductivity) const {
             for(int k = 0; k < 4; k++) {
                 hMatrixIntegrPointI(j, k) = (dN_dx[j] * dN_dx[k] + dN_dy[j] * dN_dy[k]) * conductivity * Jacobian;
             }
-        //std::cout << hMatrixIntegrPointI << std::endl;
 
         for(int j = 0; j < 4; j++)
             for(int k = 0; k < 4; k++)
@@ -236,12 +232,10 @@ void Element::calculateHbc(double const alpha) const {
                     * sideIntegrPointWeights[nIntegrPoints * side + pci] * alpha * detJ;
                 }
         }
-        //std::cout << sideHbcMatrix << std::endl;
         for(int i = 0; i < 4; i++)
             for(int j = 0; j < 4; j++)
                 hbcMatrix(i, j) += sideHbcMatrix(i, j);
     }
-    //std::cout << hbcMatrix << std::endl;
 }
 void Element::calculateP(double const alpha, double const ambTemperature) {
     for(int side = 0; side < 4; side++) {
@@ -293,7 +287,7 @@ Grid::Grid(uint32_t const _nNodes, uint32_t const _nElems, double const initTemp
     nodes = new Node[nNodes];
     elems = new Element[nElems];
     for(int i = 0; i < nElems; i++)
-        elems[i].setIntergPoints(4);
+        elems[i].setIntergPoints(3);
     hMatrix = SquareMatrix(nNodes);
     cMatrix = SquareMatrix(nNodes);
     pVector = new double[nNodes];
@@ -316,7 +310,7 @@ void Grid::calculateHMatrixGlobal(double const conductivity, double const alpha)
     }
 
     // wypis
-    std::cout << "[H] matrix:\n" << hMatrix << std::endl;
+    //std::cout << "[H] matrix:\n" << hMatrix << std::endl;
 }
 void Grid::calculatePVectorGlobal(double const alpha, double const ambTemp) const {
     // Creating global vector {P}
@@ -334,11 +328,8 @@ void Grid::calculateCMatrixGlobal(double const specificHeat, double const densit
             for(int k = 0; k < 4; k++)
                 cMatrix(elems[i].nodes[j]->id, elems[i].nodes[k]->id) += elems[i].cMatrix(j, k);
     }
-
-    //wypis
-    std::cout << "[C] matrix:\n" << cMatrix << std::endl;
 }
-void Grid::calculateTVector(double stepTime) {
+void Grid::calculateTVectorTransient(double stepTime) {
     // Preparing data
     SquareMatrix hTransientMatrix(nNodes);
     for(size_t i = 0; i < hTransientMatrix.getSize(); i++)
@@ -376,6 +367,28 @@ void Grid::calculateTVector(double stepTime) {
     }
     delete[] change;
 }
+void Grid::calculateTVectorStaticState() {
+    // Gaussian elimination
+    for(int i = 0; i < nNodes - 1; i++) {
+        int iMax = 0; // TODO: Gauss-Crout or better
+
+        for(int j = i + 1; j < nNodes; j++) {
+            double ratio = hMatrix(j,i) / hMatrix(i,i);
+            for(int k = i; k < nNodes; k++)
+                hMatrix(j,k) -= ratio * hMatrix(i,k);
+            pVector[j] -= ratio * pVector[i];
+        }
+    }
+
+    // Calculating values of tVector
+    for(int i = nNodes - 1; i >= 0; i--) {
+        tVector[i] = pVector[i];
+        for(int j = i + 1; j < nNodes; j++)
+            tVector[i] -= hMatrix(i,j) * tVector[j];
+        tVector[i] /= hMatrix(i,i);
+    }
+}
+
 void Grid::clearAllCalculations() {
     hMatrix = SquareMatrix(nNodes);
     cMatrix = SquareMatrix(nNodes);
@@ -553,6 +566,8 @@ void GlobalData::checkIfDataIsLoaded() const {
     }
 }
 
+
+
 // Wypisuje do konsoli wczytane dane
 void GlobalData::printData() const {
     std::cout << "\nGlobal Data:\nSimulation time: " << simTime << " [s]\n";
@@ -578,7 +593,6 @@ void GlobalData::printGridElems() const{
     for(uint32_t i = 0; i < nElems; i++)
         std::cout << grid->elems[i] << "\n";
 }
-
 void GlobalData::saveToFile(unsigned int const step) const {
     std::fstream file;
     std::string path = "../results/step" + std::to_string(step) + ".txt";
@@ -598,17 +612,28 @@ void GlobalData::saveToFile(unsigned int const step) const {
     file.close();
 }
 
-
-void GlobalData::runSimulation() const {
+void GlobalData::runSimulationTransient() const {
     checkIfDataIsLoaded();
 
-    int steps = simTime / simStepTime;
-    for(unsigned int i = 0; i <= steps; i++) {
+    std::cout << "Running transient simulation" << std::endl;
+    const unsigned int steps = simTime / simStepTime;
+    for(unsigned int i = 1; i <= steps; i++) {
         grid->clearAllCalculations();
         grid->calculateHMatrixGlobal(this->conductivity, this->alpha);
         grid->calculatePVectorGlobal(this->alpha, this->ambientTemp);
         grid->calculateCMatrixGlobal(this->specificHeat, this->density);
-        grid->calculateTVector(this->simStepTime);
+        grid->calculateTVectorTransient(this->simStepTime);
         saveToFile(i);
     }
+    std::cout << "Check results in /results directory\n";
+}
+void GlobalData::runSimulationStaticState() const {
+    checkIfDataIsLoaded();
+
+    std::cout << "Running static state simulation" << std::endl;
+    grid->calculateHMatrixGlobal(this->conductivity, this->alpha);
+    grid->calculatePVectorGlobal(this->alpha, this->ambientTemp);
+    grid->calculateTVectorStaticState();
+    saveToFile(0);
+    std::cout << "Check results in /results/step0\n";
 }

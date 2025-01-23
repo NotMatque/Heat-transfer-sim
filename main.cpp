@@ -13,11 +13,11 @@ void presentationFunc() {
     Element elem = Element();
     elem.nodes[0] = new Node(1, 0., 0.);
     elem.nodes[0]->isOnEdge = true;
-    elem.nodes[1] = new Node(1, 0.025, 0.);
+    elem.nodes[1] = new Node(2, 0.025, 0.);
     elem.nodes[1]->isOnEdge = true;
-    elem.nodes[2] = new Node(1, 0.025, 0.025);
+    elem.nodes[2] = new Node(3, 0.025, 0.025);
     elem.nodes[2]->isOnEdge = true;
-    elem.nodes[3] = new Node(1, 0., 0.025);
+    elem.nodes[3] = new Node(4, 0., 0.025);
     elem.nodes[3]->isOnEdge = true;
 
     elem.setIntergPoints(2);
@@ -47,11 +47,15 @@ void presentationFunc() {
 void mainProgram() {
     GlobalData gData;
     gData.getAllData("../Data/Test1_4_4.txt");
+    //gData.getAllData("../Data/Test2_4_4_MixGrid.txt");
+    //gData.getAllData("../Data/Test3_31_31_kwadrat.txt");
+    //gData.getAllData("../Data/example.txt");
     gData.printData();
     gData.printGridNodes();
     gData.printGridElems();
 
-    gData.runSimulation();
+    //gData.runSimulationTransient();
+    gData.runSimulationStaticState();
 }
 
 int main() {

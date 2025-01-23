@@ -9,6 +9,7 @@
 
 #define N_NODES_PER_ELEMENT 4
 #define N_INTEGRATION_POINTS 4
+#define FLOATING_POINT_PRECISION 12
 
 inline double N1(double const ksi, double const eta) { return 0.25 * (1 - ksi) * (1 - eta); }
 inline double N2(double const ksi, double const eta) { return 0.25 * (1 + ksi) * (1 - eta); }
@@ -98,7 +99,8 @@ struct Grid {
     void calculateHMatrixGlobal(double, double) const;
     void calculatePVectorGlobal(double, double) const;
     void calculateCMatrixGlobal(double, double) const;
-    void calculateTVector(double);
+    void calculateTVectorTransient(double);
+    void calculateTVectorStaticState();
 
     void clearAllCalculations();
 };
@@ -117,19 +119,18 @@ class GlobalData {
     Grid *grid;
 
     static void checkDataTag(std::fstream *, std::string, std::string);
-
+    void saveToFile(unsigned int) const;
+    void checkIfDataIsLoaded() const;
 public:
     GlobalData();
 
     void getOnlyData(const std::string &path);
     void getAllData(const std::string &path);
-    void checkIfDataIsLoaded() const;
 
-    void runSimulation() const;
+    void runSimulationTransient() const;
+    void runSimulationStaticState() const;
 
     void printData() const;
     void printGridNodes() const;
     void printGridElems() const;
-
-    void saveToFile(unsigned int) const;
 };
