@@ -1,7 +1,3 @@
-//
-// Created by Mateusz on 04.11.2024.
-//
-
 #pragma once
 #include <iostream>
 #include <memory>
@@ -11,7 +7,7 @@
 
 // Square matrix nxn
 class SquareMatrix {
-    std::shared_ptr<std::shared_ptr<double[]>[]> matrix;
+    std::shared_ptr<double[]> matrix;
     unsigned int size;
 public:
     SquareMatrix(unsigned int n = 2);
