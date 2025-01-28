@@ -1,0 +1,5 @@
+Name Rubber
+Conductivity 401
+Alpha 300
+Density 8920
+SpecificHeat 380

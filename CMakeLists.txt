@@ -10,4 +10,5 @@ add_executable(untitled main.cpp
         quadGauss.h
         matrix.cpp
         matrix.h
+        substanceData.h
 )

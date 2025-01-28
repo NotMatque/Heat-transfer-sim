@@ -25,6 +25,7 @@ std::ostream& operator<<(std::ostream& os, const Node& n){
 }
 
 Element::Element() {
+    substance = nullptr;
     id = 0;
     for (int i = 0; i < 4; i++)
         nodes[i] = nullptr;
@@ -180,7 +181,7 @@ void Element::calculateJacobians() const {
         jMatrix[i](1, 1) = dN_dEta[0](integrPoints[i].x) * nodes[0]->y + dN_dEta[1](integrPoints[i].x) * nodes[1]->y + dN_dEta[2](integrPoints[i].x) * nodes[2]->y + dN_dEta[3](integrPoints[i].x) * nodes[3]->y;
     }
 }
-void Element::calculateH(double const conductivity) const {
+void Element::calculateH() const {
     calculateJacobians();
     for(unsigned int i = 0; i < nIntegrPoints * nIntegrPoints; i++) {
         double dN_dx[4]; // Dla PCi
@@ -201,7 +202,7 @@ void Element::calculateH(double const conductivity) const {
         SquareMatrix hMatrixIntegrPointI(4);
         for(int j = 0; j < 4; j++)
             for(int k = 0; k < 4; k++) {
-                hMatrixIntegrPointI(j, k) = (dN_dx[j] * dN_dx[k] + dN_dy[j] * dN_dy[k]) * conductivity * Jacobian;
+                hMatrixIntegrPointI(j, k) = (dN_dx[j] * dN_dx[k] + dN_dy[j] * dN_dy[k]) * substance->conductivity * Jacobian;
             }
 
         for(int j = 0; j < 4; j++)
@@ -209,7 +210,7 @@ void Element::calculateH(double const conductivity) const {
                 hMatrix(j, k) += hMatrixIntegrPointI(j, k) * integrPointWeights[i];
     }
 }
-void Element::calculateHbc(double const alpha) const {
+void Element::calculateHbc() const {
     for(int side = 0; side < 4; side++) {
         if(!nodes[side]->isOnEdge or !nodes[(side + 1) % 4]->isOnEdge)
             continue;
@@ -221,7 +222,7 @@ void Element::calculateHbc(double const alpha) const {
         for(int pci = 0; pci < nIntegrPoints; pci++) {
             double Nvec[4];
             for(int i = 0; i < 4; i++) {
-                Nvec[i] = Nfunc[i](sideIntegrPoints[nIntegrPoints * side + pci].x,
+                Nvec[i] = nFunc[i](sideIntegrPoints[nIntegrPoints * side + pci].x,
                     sideIntegrPoints[nIntegrPoints * side + pci].y);
                 //std::cout << Nvec[i] << std::endl;
             }
@@ -229,7 +230,7 @@ void Element::calculateHbc(double const alpha) const {
             for(int i = 0; i < 4; i++)
                 for(int j = 0; j < 4; j++) {
                     sideHbcMatrix(i, j) += Nvec[i] * Nvec[j]
-                    * sideIntegrPointWeights[nIntegrPoints * side + pci] * alpha * detJ;
+                    * sideIntegrPointWeights[nIntegrPoints * side + pci] * substance->alpha * detJ;
                 }
         }
         for(int i = 0; i < 4; i++)
@@ -237,7 +238,7 @@ void Element::calculateHbc(double const alpha) const {
                 hbcMatrix(i, j) += sideHbcMatrix(i, j);
     }
 }
-void Element::calculateP(double const alpha, double const ambTemperature) {
+void Element::calculateP(double ambTemperature) {
     for(int side = 0; side < 4; side++) {
         if(!nodes[side]->isOnEdge or !nodes[(side + 1) % 4]->isOnEdge)
             continue;
@@ -247,24 +248,24 @@ void Element::calculateP(double const alpha, double const ambTemperature) {
         std::array<double, 4> sidePVector {};
         for(int pci = 0; pci < nIntegrPoints; pci++) {
             for(int i = 0; i < 4; i++) {
-                sidePVector[i] += Nfunc[i](sideIntegrPoints[nIntegrPoints * side + pci].x, sideIntegrPoints[nIntegrPoints * side + pci].y)
+                sidePVector[i] += nFunc[i](sideIntegrPoints[nIntegrPoints * side + pci].x, sideIntegrPoints[nIntegrPoints * side + pci].y)
                 * sideIntegrPointWeights[nIntegrPoints * side + pci] * ambTemperature;
             }
         }
         for(int i = 0; i < 4; i++) {
-            sidePVector[i] *= alpha * detJ;
+            sidePVector[i] *= substance->alpha * detJ;
             pVector[i] += sidePVector[i];
         }
     }
 }
-void Element::calculateC(double const specificHeat, double const density) {
+void Element::calculateC() {
     for(unsigned int i = 0; i < nIntegrPoints * nIntegrPoints; i++) {
         double detJ = jMatrix[i].det();
 
         SquareMatrix cMatrixIntegrPointI(4);
         for(int j = 0; j < 4; j++)
             for(int k = 0; k < 4; k++)
-                cMatrixIntegrPointI(j,k) = specificHeat * density * detJ * Nfunc[j](integrPoints[i].x, integrPoints[i].y) * Nfunc[k](integrPoints[i].x, integrPoints[i].y);
+                cMatrixIntegrPointI(j,k) = substance->specificHeat * substance->density * detJ * nFunc[j](integrPoints[i].x, integrPoints[i].y) * nFunc[k](integrPoints[i].x, integrPoints[i].y);
 
         for(int j = 0; j < 4; j++)
             for(int k = 0; k < 4; k++)
@@ -299,30 +300,27 @@ Grid::~Grid() {
     delete[] nodes;
     delete[] elems;
 }
-void Grid::calculateHMatrixGlobal(double const conductivity, double const alpha) const {
+void Grid::calculateHMatrixGlobal() const {
     for(int i = 0; i < nElems; i++) {
-        elems[i].calculateH(conductivity);
-        elems[i].calculateHbc(alpha);
+        elems[i].calculateH(); //elems[i].calculateH[elems[i].k];
+        elems[i].calculateHbc();
 
         for(int j = 0; j < 4; j++)
             for(int k = 0; k < 4; k++)
                 hMatrix(elems[i].nodes[j]->id, elems[i].nodes[k]->id) += elems[i].hMatrix(j, k) + elems[i].hbcMatrix(j, k);
     }
-
-    // wypis
-    //std::cout << "[H] matrix:\n" << hMatrix << std::endl;
 }
-void Grid::calculatePVectorGlobal(double const alpha, double const ambTemp) const {
+void Grid::calculatePVectorGlobal(double ambientTemp) const {
     // Creating global vector {P}
     for(int i = 0; i < nElems; i++) {
-        elems[i].calculateP(alpha, ambTemp);
+        elems[i].calculateP(ambientTemp);
         for(int j = 0; j < 4; j++)
             pVector[elems[i].nodes[j]->id] += elems[i].pVector[j];
     }
 }
-void Grid::calculateCMatrixGlobal(double const specificHeat, double const density) const {
+void Grid::calculateCMatrixGlobal() const {
     for(int i = 0; i < nElems; i++) {
-        elems[i].calculateC(specificHeat, density);
+        elems[i].calculateC();
 
         for(int j = 0; j < 4; j++)
             for(int k = 0; k < 4; k++)
@@ -407,12 +405,10 @@ void GlobalData::checkDataTag(std::fstream* file, std::string const curr, const 
 GlobalData::GlobalData() {
     simTime = 0.0;
     simStepTime = 0.0;
-    conductivity = 0.0;
-    alpha = 0.0;
     ambientTemp = 0.0;
     initTemp = 0.0;
-    density = 0.0;
-    specificHeat = 0.0;
+    nSubstances = 0;
+    substances = nullptr;
     nNodes = 0;
     nElems = 0;
     grid = nullptr;
@@ -440,17 +436,17 @@ void GlobalData::getOnlyData(const std::string &path) {
     file >> tempString;
     simStepTime = stod(tempString);
 
-    // === Conductivity ===
-    file >> tempString;
-    checkDataTag(&file, tempString, "Conductivity");
-    file >> tempString;
-    conductivity = stod(tempString);
+    // // === Conductivity ===
+    // file >> tempString;
+    // checkDataTag(&file, tempString, "Conductivity");
+    // file >> tempString;
+    // conductivity = stod(tempString);
 
-    // === Alpha ===
-    file >> tempString;
-    checkDataTag(&file, tempString, "Alfa");
-    file  >> tempString;
-    alpha = stod(tempString);
+    // // === Alpha ===
+    // file >> tempString;
+    // checkDataTag(&file, tempString, "Alfa");
+    // file  >> tempString;
+    // alpha = stod(tempString);
 
     // === Ambient temperature ===
     file >> tempString;
@@ -464,17 +460,17 @@ void GlobalData::getOnlyData(const std::string &path) {
     file  >> tempString;
     initTemp = stod(tempString);
 
-    // === Density ===
-    file >> tempString;
-    checkDataTag(&file, tempString, "Density");
-    file  >> tempString;
-    density = stod(tempString);
+    // // === Density ===
+    // file >> tempString;
+    // checkDataTag(&file, tempString, "Density");
+    // file  >> tempString;
+    // density = stod(tempString);
 
-    // === Specific Heat ===
-    file >> tempString;
-    checkDataTag(&file, tempString, "SpecificHeat");
-    file  >> tempString;
-    specificHeat = stod(tempString);
+    // // === Specific Heat ===
+    // file >> tempString;
+    // checkDataTag(&file, tempString, "SpecificHeat");
+    // file  >> tempString;
+    // specificHeat = stod(tempString);
 
     // === Number of Nodes ===
     file >> tempString;
@@ -559,6 +555,149 @@ void GlobalData::getAllData(const std::string &path) {
     file.close();
 }
 
+void GlobalData::getAllDataFromDir(const std::string &directory) {
+    getSimParamsFromFile(directory + "sim_params.txt");
+
+    for(unsigned int i = 1; i <= nSubstances; i++)
+        getSubstanceDataFromFile(i, directory + "substance_" + std::to_string(i) + ".txt");
+    getNodesFromFile(directory + "nodes.csv");
+    getElementsFromFile(directory + "elements.csv");
+}
+void GlobalData::getSimParamsFromFile(const std::string &path) {
+    std::fstream simParamsFile;
+    simParamsFile.open(path);
+
+    if (!simParamsFile.is_open()) {
+        std::cerr << "ERROR: Could not open file " << path << std::endl;
+        exit(1);
+    }
+
+    std::string ignoreMe, readData;
+
+    simParamsFile >> ignoreMe >> readData;
+    checkDataTag(&simParamsFile, ignoreMe, "SimulationTime");
+    this->simTime = stod(readData);
+
+    simParamsFile >> ignoreMe >> readData;
+    checkDataTag(&simParamsFile, ignoreMe, "SimulationStepTime");
+    this->simStepTime = stod(readData);
+
+    simParamsFile >> ignoreMe >> readData;
+    checkDataTag(&simParamsFile, ignoreMe, "AmbientTemp");
+    this->ambientTemp = stod(readData);
+
+    simParamsFile >> ignoreMe >> readData;
+    checkDataTag(&simParamsFile, ignoreMe, "InitialTemp");
+    this->initTemp = stod(readData);
+
+    simParamsFile >> ignoreMe >> readData;
+    checkDataTag(&simParamsFile, ignoreMe, "SubstancesNumber");
+    this->nSubstances = stoi(readData);
+    substances = new SubstanceData[stoi(readData)];
+
+    simParamsFile >> ignoreMe >> readData;
+    checkDataTag(&simParamsFile, ignoreMe, "NodesNumber");
+    this->nNodes = stoi(readData);
+
+    simParamsFile >> ignoreMe >> readData;
+    checkDataTag(&simParamsFile, ignoreMe, "ElementsNumber");
+    this->nElems = stoi(readData);
+
+    simParamsFile.close();
+}
+void GlobalData::getSubstanceDataFromFile(unsigned int substanceNumber, const std::string &path) {
+    std:std::fstream substanceFile;
+    substanceFile.open(path);
+
+    if (!substanceFile.is_open()) {
+        std::cerr << "ERROR: Could not open file " << path << std::endl;
+        exit(1);
+    }
+
+    std::string ignoreMe, readData;
+
+    substanceFile >> ignoreMe >> readData;
+    checkDataTag(&substanceFile, ignoreMe, "Name");
+    substances[substanceNumber - 1].name = readData;
+
+    substanceFile >> ignoreMe >> readData;
+    checkDataTag(&substanceFile, ignoreMe, "Conductivity");
+    substances[substanceNumber - 1].conductivity = stod(readData);
+
+    substanceFile >> ignoreMe >> readData;
+    checkDataTag(&substanceFile, ignoreMe, "Alpha");
+    substances[substanceNumber - 1].alpha = stod(readData);
+
+    substanceFile >> ignoreMe >> readData;
+    checkDataTag(&substanceFile, ignoreMe, "Density");
+    substances[substanceNumber - 1].density = stod(readData);
+
+    substanceFile >> ignoreMe >> readData;
+    checkDataTag(&substanceFile, ignoreMe, "SpecificHeat");
+    substances[substanceNumber - 1].specificHeat = stod(readData);
+
+    substanceFile.close();
+}
+
+void GlobalData::getNodesFromFile(const std::string &path) {
+    if(!grid)
+        grid = new Grid(nNodes, nElems, initTemp);
+
+    std::fstream nodesFile;
+    nodesFile.open(path);
+
+    if (!nodesFile.is_open()) {
+        std::cerr << "ERROR: Could not open file " << path << std::endl;
+        exit(1);
+    }
+
+    std::string ignoreMe, readX, readY, readIsOnEdge;
+
+    nodesFile >> ignoreMe >> ignoreMe >> ignoreMe >> ignoreMe;
+    for(unsigned int i = 0; i < nNodes; i++) {
+        nodesFile >> ignoreMe >> readX >> readY >> readIsOnEdge;
+        grid->nodes[i].id = i;
+        readX.pop_back();
+        grid->nodes[i].x = stod(readX);
+        readY.pop_back();
+        grid->nodes[i].y = stod(readY);
+        grid->nodes[i].isOnEdge = stoi(readIsOnEdge);
+    }
+
+    nodesFile.close();
+}
+
+void GlobalData::getElementsFromFile(const std::string &path) {
+    if(!grid)
+        grid = new Grid(nNodes, nElems, initTemp);
+
+    std::fstream elementsFile;
+    elementsFile.open(path);
+
+    if (!elementsFile.is_open()) {
+        std::cerr << "ERROR: Could not open file " << path << std::endl;
+        exit(1);
+    }
+
+    std::string ignoreMe, readNode1, readNode2, readNode3, readNode4, readSubstanceNum;
+
+    elementsFile >> ignoreMe >> ignoreMe >> ignoreMe >> ignoreMe >> ignoreMe >> ignoreMe;
+    for(unsigned int i = 0; i < nElems; i++) {
+        elementsFile >> ignoreMe >> readNode1 >> readNode2 >> readNode3 >> readNode4 >> readSubstanceNum;
+        grid->elems[i].id = i;
+        readNode1.pop_back();
+        grid->elems[i].nodes[0] = &grid->nodes[stoi(readNode1) - 1];
+        readNode2.pop_back();
+        grid->elems[i].nodes[1] = &grid->nodes[stoi(readNode2) - 1];
+        readNode3.pop_back();
+        grid->elems[i].nodes[2] = &grid->nodes[stoi(readNode3) - 1];
+        readNode4.pop_back();
+        grid->elems[i].nodes[3] = &grid->nodes[stoi(readNode4) - 1];
+        grid->elems[i].substance = &substances[stoi(readSubstanceNum) - 1];
+    }
+    elementsFile.close();
+}
+
 void GlobalData::checkIfDataIsLoaded() const {
     if(grid == nullptr) {
         std::cerr << "ERROR: grid is null" << std::endl;
@@ -566,18 +705,17 @@ void GlobalData::checkIfDataIsLoaded() const {
     }
 }
 
-
-
 // Wypisuje do konsoli wczytane dane
 void GlobalData::printData() const {
     std::cout << "\nGlobal Data:\nSimulation time: " << simTime << " [s]\n";
     std::cout << "Simulation step time: " << simStepTime << " [s]\n";
-    std::cout << "Conductivity: " << conductivity << " [W/(mK)]\n";
-    std::cout << "Alpha: " << alpha << "\n";
-    std::cout << "Ambient temperature: " << ambientTemp << "[K]\n";
-    std::cout << "Initial temperature: " << initTemp << " [K]\n";
-    std::cout << "Density: " << density << " [kg/m^3]\n";
-    std::cout << "Specific heat: " << specificHeat << "\n";
+    std::cout << "Ambient temperature: " << ambientTemp << "[C]\n";
+    std::cout << "Initial temperature: " << initTemp << " [C]\n";
+    std::cout << "Substances: " << nSubstances << "\n";
+    for(unsigned int i = 0; i < nSubstances; i++) {
+        std::cout << substances[i] << "\n";
+    }
+
     std::cout << "Number of nodes: " << nNodes << "\n";
     std::cout << "Number of elements: " << nElems << "\n";
 }
@@ -595,7 +733,7 @@ void GlobalData::printGridElems() const{
 }
 void GlobalData::saveToFile(unsigned int const step) const {
     std::fstream file;
-    std::string path = "../results/step" + std::to_string(step) + ".txt";
+    std::string path = "../Results/step" + std::to_string(step) + ".txt";
 
     file.open(path, std::ios::out | std::ios::trunc);
 
@@ -619,21 +757,21 @@ void GlobalData::runSimulationTransient() const {
     const unsigned int steps = simTime / simStepTime;
     for(unsigned int i = 1; i <= steps; i++) {
         grid->clearAllCalculations();
-        grid->calculateHMatrixGlobal(this->conductivity, this->alpha);
-        grid->calculatePVectorGlobal(this->alpha, this->ambientTemp);
-        grid->calculateCMatrixGlobal(this->specificHeat, this->density);
+        grid->calculateHMatrixGlobal();
+        grid->calculatePVectorGlobal(this->ambientTemp);
+        grid->calculateCMatrixGlobal();
         grid->calculateTVectorTransient(this->simStepTime);
         saveToFile(i);
     }
-    std::cout << "Check results in /results directory\n";
+    std::cout << "Check Results in /Results directory\n";
 }
 void GlobalData::runSimulationStaticState() const {
     checkIfDataIsLoaded();
 
     std::cout << "Running static state simulation" << std::endl;
-    grid->calculateHMatrixGlobal(this->conductivity, this->alpha);
-    grid->calculatePVectorGlobal(this->alpha, this->ambientTemp);
+    grid->calculateHMatrixGlobal();
+    grid->calculatePVectorGlobal(this->ambientTemp);
     grid->calculateTVectorStaticState();
     saveToFile(0);
-    std::cout << "Check results in /results/step0\n";
+    std::cout << "Check Results in /Results/step0\n";
 }

@@ -6,16 +6,16 @@
 
 
 #include "matrix.h"
+#include "substanceData.h"
 
 #define N_NODES_PER_ELEMENT 4
-#define N_INTEGRATION_POINTS 4
 #define FLOATING_POINT_PRECISION 12
 
 inline double N1(double const ksi, double const eta) { return 0.25 * (1 - ksi) * (1 - eta); }
 inline double N2(double const ksi, double const eta) { return 0.25 * (1 + ksi) * (1 - eta); }
 inline double N3(double const ksi, double const eta) { return 0.25 * (1 + ksi) * (1 + eta); }
 inline double N4(double const ksi, double const eta) { return 0.25 * (1 - ksi) * (1 + eta); }
-inline double (*Nfunc[4])(double, double){N1, N2, N3, N4};
+inline double (*nFunc[4])(double, double){N1, N2, N3, N4};
 
 inline double dN1_dKsi(double const eta) { return -0.25 * (1 - eta); }
 inline double dN2_dKsi(double const eta) { return 0.25 * (1 - eta); }
@@ -35,7 +35,7 @@ struct Point {
     Point(double const x, double const y) : x(x), y(y) {}
     friend std::ostream &operator<<(std::ostream &, const Point &);
 };
-// Węzeł siatki o określonych koordynatach x, y
+// Grid node on x and y coords
 struct Node : Point {
     uint32_t id;
     bool isOnEdge;
@@ -45,18 +45,19 @@ struct Node : Point {
     friend std::ostream &operator<<(std::ostream &, const Node &);
 };
 
-// Element składający się z (N_NODES_PER_ELEMENT =) 4 węzłów
-// ID lokalne węzłów:
+// Element composed of (N_NODES_PER_ELEMENT =) 4 nodes
+// local node ID:
 //   4---3
 //  /   /
 // 1---2
 struct Element {
-    unsigned int nIntegrPoints; // Ilość punktów całkowania
-    Point *integrPoints; // Tablica z punktami całkowania
-    double *integrPointWeights;
-    Point *sideIntegrPoints; // Tablica z punktami całkowania na boku
-    double *sideIntegrPointWeights;
-    SquareMatrix *jMatrix; // Macierze Jakobiego dla 2 lub 3 punktów całkowania
+    SubstanceData *substance; // Substance the elements is made of
+    unsigned int nIntegrPoints; // Number of integration points
+    Point *integrPoints; // Array of integration points
+    double *integrPointWeights; // Array of integration point weights
+    Point *sideIntegrPoints; // Array of side integration points
+    double *sideIntegrPointWeights; // Array of side integration point weights
+    SquareMatrix *jMatrix; // Array of Jacobi matrices for all integration points
 public:
     uint32_t id;
     Node *nodes[4]; // Tablica ze wskaźnikami na węzły // TODO: shared_ptr
@@ -69,10 +70,10 @@ public:
     ~Element();
     void setIntergPoints(unsigned int nIntegrPoints);
     void calculateJacobians() const;
-    void calculateH(double) const;
-    void calculateHbc(double) const;
-    void calculateP(double, double);
-    void calculateC(double, double);
+    void calculateH() const;
+    void calculateHbc() const;
+    void calculateP(double);
+    void calculateC();
     friend std::ostream &operator<<(std::ostream &os, const Element &e);
 };
 
@@ -96,9 +97,9 @@ struct Grid {
 
     Grid(uint32_t _nNodes, uint32_t _nElems, double initTemp);
     ~Grid();
-    void calculateHMatrixGlobal(double, double) const;
-    void calculatePVectorGlobal(double, double) const;
-    void calculateCMatrixGlobal(double, double) const;
+    void calculateHMatrixGlobal() const;
+    void calculatePVectorGlobal(double) const;
+    void calculateCMatrixGlobal() const;
     void calculateTVectorTransient(double);
     void calculateTVectorStaticState();
 
@@ -108,12 +109,10 @@ struct Grid {
 class GlobalData {
     double simTime;
     double simStepTime;
-    double conductivity;
-    double alpha;
     double ambientTemp;
     double initTemp;
-    double density;
-    double specificHeat;
+    unsigned int nSubstances;
+    SubstanceData *substances;
     uint32_t nNodes;
     uint32_t nElems;
     Grid *grid;
@@ -126,6 +125,11 @@ public:
 
     void getOnlyData(const std::string &path);
     void getAllData(const std::string &path);
+    void getAllDataFromDir(const std::string &directory);
+    void getSimParamsFromFile(const std::string &path);
+    void getSubstanceDataFromFile(unsigned int, const std::string &path);
+    void getNodesFromFile(const std::string &path);
+    void getElementsFromFile(const std::string &path);
 
     void runSimulationTransient() const;
     void runSimulationStaticState() const;

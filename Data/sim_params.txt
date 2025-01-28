@@ -1,0 +1,7 @@
+SimulationTime 60
+SimulationStepTime 5
+AmbientTemp 20
+InitialTemp 103
+SubstancesNumber 1
+NodesNumber 25
+ElementsNumber 16
