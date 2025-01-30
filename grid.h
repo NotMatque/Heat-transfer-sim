@@ -3,7 +3,7 @@
 #include <array>
 #include <cstdint>
 #include <fstream>
-
+#include <iomanip>
 
 #include "matrix.h"
 #include "substanceData.h"
@@ -60,7 +60,7 @@ struct Element {
     SquareMatrix *jMatrix; // Array of Jacobi matrices for all integration points
 public:
     uint32_t id;
-    Node *nodes[4]; // Tablica ze wskaźnikami na węzły // TODO: shared_ptr
+    Node **nodes; // Tablica ze wskaźnikami na węzły // TODO: shared_ptr
     SquareMatrix hMatrix;
     SquareMatrix hbcMatrix;
     SquareMatrix cMatrix;
@@ -73,7 +73,7 @@ public:
     void calculateH() const;
     void calculateHbc() const;
     void calculateP(double);
-    void calculateC();
+    void calculateC() const;
     friend std::ostream &operator<<(std::ostream &os, const Element &e);
 };
 
@@ -87,8 +87,6 @@ public:
 struct Grid {
     uint32_t nNodes; // Liczba węzłów
     uint32_t nElems; // Liczba elementów
-    uint32_t height; // Wysokość siatki
-    uint32_t width; // Szerokość siatki
     Node *nodes; // Tablica węzłów // TODO: shared_ptr
     Element *elems; // Tablica elementów
     SquareMatrix hMatrix; // Macierz H globalna
@@ -101,7 +99,7 @@ struct Grid {
     void calculatePVectorGlobal(double) const;
     void calculateCMatrixGlobal() const;
     void calculateTVectorTransient(double);
-    void calculateTVectorStaticState();
+    void calculateTVectorStaticState() const;
 
     void clearAllCalculations();
 };
@@ -123,8 +121,6 @@ class GlobalData {
 public:
     GlobalData();
 
-    void getOnlyData(const std::string &path);
-    void getAllData(const std::string &path);
     void getAllDataFromDir(const std::string &directory);
     void getSimParamsFromFile(const std::string &path);
     void getSubstanceDataFromFile(unsigned int, const std::string &path);

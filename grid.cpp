@@ -1,8 +1,5 @@
-#include "grid.h"
 
-#include <algorithm>
-#include <iomanip>
-#include <sstream>
+#include "grid.h"
 
 Node::Node(): Point() {
     id = 0;
@@ -27,6 +24,7 @@ std::ostream& operator<<(std::ostream& os, const Node& n){
 Element::Element() {
     substance = nullptr;
     id = 0;
+    nodes = new Node*[4];
     for (int i = 0; i < 4; i++)
         nodes[i] = nullptr;
     hMatrix = SquareMatrix(4);
@@ -168,6 +166,8 @@ void Element::setIntergPoints(unsigned int const nIntegrPoints) {
             }
             break;
         }
+        default:
+            break;
     }
 
     // Tworzenie macierzy Jakobiego dla każdego PC
@@ -258,7 +258,7 @@ void Element::calculateP(double ambTemperature) {
         }
     }
 }
-void Element::calculateC() {
+void Element::calculateC() const{
     for(unsigned int i = 0; i < nIntegrPoints * nIntegrPoints; i++) {
         double detJ = jMatrix[i].det();
 
@@ -302,7 +302,7 @@ Grid::~Grid() {
 }
 void Grid::calculateHMatrixGlobal() const {
     for(int i = 0; i < nElems; i++) {
-        elems[i].calculateH(); //elems[i].calculateH[elems[i].k];
+        elems[i].calculateH();
         elems[i].calculateHbc();
 
         for(int j = 0; j < 4; j++)
@@ -365,7 +365,7 @@ void Grid::calculateTVectorTransient(double stepTime) {
     }
     delete[] change;
 }
-void Grid::calculateTVectorStaticState() {
+void Grid::calculateTVectorStaticState() const{
     // Gaussian elimination
     for(int i = 0; i < nNodes - 1; i++) {
         int iMax = 0; // TODO: Gauss-Crout or better
@@ -379,7 +379,7 @@ void Grid::calculateTVectorStaticState() {
     }
 
     // Calculating values of tVector
-    for(int i = nNodes - 1; i >= 0; i--) {
+    for(int i = (int)nNodes - 1; i >= 0; i--) {
         tVector[i] = pVector[i];
         for(int j = i + 1; j < nNodes; j++)
             tVector[i] -= hMatrix(i,j) * tVector[j];
@@ -393,7 +393,6 @@ void Grid::clearAllCalculations() {
     for(int i = 0; i < nNodes; i++)
         pVector[i] = 0;
 }
-
 
 void GlobalData::checkDataTag(std::fstream* file, std::string const curr, const std::string expected) {
     if(curr != expected) {
@@ -412,147 +411,6 @@ GlobalData::GlobalData() {
     nNodes = 0;
     nElems = 0;
     grid = nullptr;
-}
-// Wczytuje dane z pliku dane (bez węzłów)
-void GlobalData::getOnlyData(const std::string &path) {
-    std::fstream file;
-    file.open(path);
-    if (!file.is_open()) {
-        std::cerr << "ERROR: Could not open file " << path << std::endl;
-        file.close();
-        exit(1);
-    }
-
-    std::string tempString;
-    // === SimulationTime ===
-    file >> tempString;
-    checkDataTag(&file, tempString, "SimulationTime");
-    file >> tempString;
-    simTime = stod(tempString);
-
-    // === SimulationStepTime ===
-    file >> tempString;
-    checkDataTag(&file, tempString, "SimulationStepTime");
-    file >> tempString;
-    simStepTime = stod(tempString);
-
-    // // === Conductivity ===
-    // file >> tempString;
-    // checkDataTag(&file, tempString, "Conductivity");
-    // file >> tempString;
-    // conductivity = stod(tempString);
-
-    // // === Alpha ===
-    // file >> tempString;
-    // checkDataTag(&file, tempString, "Alfa");
-    // file  >> tempString;
-    // alpha = stod(tempString);
-
-    // === Ambient temperature ===
-    file >> tempString;
-    checkDataTag(&file, tempString, "AmbientTemp");
-    file  >> tempString;
-    ambientTemp = stod(tempString);
-
-    // === Initial temperature ===
-    file >> tempString;
-    checkDataTag(&file, tempString, "InitialTemp");
-    file  >> tempString;
-    initTemp = stod(tempString);
-
-    // // === Density ===
-    // file >> tempString;
-    // checkDataTag(&file, tempString, "Density");
-    // file  >> tempString;
-    // density = stod(tempString);
-
-    // // === Specific Heat ===
-    // file >> tempString;
-    // checkDataTag(&file, tempString, "SpecificHeat");
-    // file  >> tempString;
-    // specificHeat = stod(tempString);
-
-    // === Number of Nodes ===
-    file >> tempString;
-    checkDataTag(&file, tempString, "NodesNumber");
-    file  >> tempString;
-    nNodes = stoi(tempString);
-
-    // === Number of Elements ===
-    file >> tempString;
-    checkDataTag(&file, tempString, "ElementsNumber");
-    file  >> tempString;
-    nElems = stoi(tempString);
-
-    file.close();
-}
-// Wczytuje wszystkie dane z pliku
-void GlobalData::getAllData(const std::string &path) {
-    getOnlyData(path);
-
-    std::fstream file;
-    std::string ignoreMe;
-    file.open(path);
-    if (!file.is_open()) {
-        std::cerr << "ERROR: Could not open file " << path << std::endl;
-        file.close();
-        exit(1);
-    }
-
-    for(int i = 0; i < 20; i++)
-        file >> ignoreMe;
-
-    // Wczytywanie węzłów
-    grid = new Grid(nNodes, nElems, initTemp);
-    file >> ignoreMe;
-    checkDataTag(&file, ignoreMe, "*Node");
-    for(uint32_t i = 0; i < nNodes; i++) {
-        file >> ignoreMe; // node id
-        std::string tempX, tempY;
-        file >> tempX; // node x
-        tempX.pop_back();
-        grid->nodes[i].x = stod(tempX);
-        file >> tempY; // node y
-        grid->nodes[i].y = stod(tempY);
-        grid->nodes[i].id = i;
-    }
-
-    // Wczytywanie elementów
-    file >> ignoreMe;
-    checkDataTag(&file, ignoreMe, "*Element,");
-    file >> ignoreMe;
-    checkDataTag(&file, ignoreMe, "type=DC2D4");
-    for(uint32_t i = 0; i < nElems; i++) {
-        file >> ignoreMe; // Nr elementu
-        file >> ignoreMe; // Node nr 1
-        ignoreMe.pop_back();
-        grid->elems[i].nodes[0] = &grid->nodes[stoi(ignoreMe) - 1];
-        file >> ignoreMe; // Node nr 2
-        ignoreMe.pop_back();
-        grid->elems[i].nodes[1] = &grid->nodes[stoi(ignoreMe) - 1];
-        file >> ignoreMe; // Node nr 3
-        ignoreMe.pop_back();
-        grid->elems[i].nodes[2] = &grid->nodes[stoi(ignoreMe) - 1];
-        file >> ignoreMe; // Node nr 4
-        grid->elems[i].nodes[3] = &grid->nodes[stoi(ignoreMe) - 1];
-        grid->elems[i].id = i;
-    }
-
-    // Ustawianie węzłów na granicy
-    file >> ignoreMe;
-    checkDataTag(&file, ignoreMe, "*BC");
-    do {
-        file >> ignoreMe;
-        if (ignoreMe.back() == ',') {
-            ignoreMe.pop_back();
-            grid->nodes[std::stoi(ignoreMe) - 1].isOnEdge = true;
-        } else {
-            grid->nodes[std::stoi(ignoreMe) - 1].isOnEdge = true;
-            break;
-        }
-    } while (true);
-
-    file.close();
 }
 
 void GlobalData::getAllDataFromDir(const std::string &directory) {
@@ -638,7 +496,6 @@ void GlobalData::getSubstanceDataFromFile(unsigned int substanceNumber, const st
 
     substanceFile.close();
 }
-
 void GlobalData::getNodesFromFile(const std::string &path) {
     if(!grid)
         grid = new Grid(nNodes, nElems, initTemp);
@@ -666,7 +523,6 @@ void GlobalData::getNodesFromFile(const std::string &path) {
 
     nodesFile.close();
 }
-
 void GlobalData::getElementsFromFile(const std::string &path) {
     if(!grid)
         grid = new Grid(nNodes, nElems, initTemp);
@@ -697,7 +553,6 @@ void GlobalData::getElementsFromFile(const std::string &path) {
     }
     elementsFile.close();
 }
-
 void GlobalData::checkIfDataIsLoaded() const {
     if(grid == nullptr) {
         std::cerr << "ERROR: grid is null" << std::endl;
@@ -743,7 +598,6 @@ void GlobalData::saveToFile(unsigned int const step) const {
     }
 
     for (uint32_t i = 0; i < nNodes; i++) {
-        std::cout << std::setprecision(FLOATING_POINT_PRECISION) << grid->tVector[i] << std::endl;
         file << std::setprecision(FLOATING_POINT_PRECISION) << grid->tVector[i] << std::endl;
     }
 
@@ -753,8 +607,8 @@ void GlobalData::saveToFile(unsigned int const step) const {
 void GlobalData::runSimulationTransient() const {
     checkIfDataIsLoaded();
 
-    std::cout << "Running transient simulation" << std::endl;
-    const unsigned int steps = simTime / simStepTime;
+    std::cout << "Running transient simulation...\n";
+    const unsigned int steps = static_cast<int>(simTime / simStepTime);
     for(unsigned int i = 1; i <= steps; i++) {
         grid->clearAllCalculations();
         grid->calculateHMatrixGlobal();
@@ -768,7 +622,7 @@ void GlobalData::runSimulationTransient() const {
 void GlobalData::runSimulationStaticState() const {
     checkIfDataIsLoaded();
 
-    std::cout << "Running static state simulation" << std::endl;
+    std::cout << "Running static state simulation...\n";
     grid->calculateHMatrixGlobal();
     grid->calculatePVectorGlobal(this->ambientTemp);
     grid->calculateTVectorStaticState();
