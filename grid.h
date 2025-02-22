@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <fstream>
 #include <iomanip>
+#include <vector>
 
 #include "matrix.h"
 #include "substanceData.h"
@@ -29,6 +30,7 @@ inline double dN3_dEta(double const ksi) { return 0.25 * (1 + ksi); }
 inline double dN4_dEta(double const ksi) { return 0.25 * (1 - ksi); }
 inline double (*dN_dEta[4])(double){dN1_dEta, dN2_dEta, dN3_dEta, dN4_dEta};
 
+// Simple point
 struct Point {
     double x, y;
     Point(): x(0), y(0) {}
@@ -51,7 +53,7 @@ struct Node : Point {
 //  /   /
 // 1---2
 struct Element {
-    SubstanceData *substance; // Substance the elements is made of
+    std::shared_ptr<SubstanceData> substance; // Substance the elements is made of
     unsigned int nIntegrPoints; // Number of integration points
     Point *integrPoints; // Array of integration points
     double *integrPointWeights; // Array of integration point weights
@@ -59,11 +61,11 @@ struct Element {
     double *sideIntegrPointWeights; // Array of side integration point weights
     SquareMatrix *jMatrix; // Array of Jacobi matrices for all integration points
 public:
-    uint32_t id;
-    Node **nodes; // Tablica ze wskaźnikami na węzły // TODO: shared_ptr
-    SquareMatrix hMatrix;
+    uint32_t id; // Id of this element
+    std::array<std::shared_ptr<Node>,4> nodes {};
+    SquareMatrix hMatrix; //
     SquareMatrix hbcMatrix;
-    SquareMatrix cMatrix;
+    SquareMatrix cMatrix; // Heat capacity matrix
     std::array<double, 4> pVector{};
 
     Element();
@@ -87,10 +89,10 @@ public:
 struct Grid {
     uint32_t nNodes; // Liczba węzłów
     uint32_t nElems; // Liczba elementów
-    Node *nodes; // Tablica węzłów // TODO: shared_ptr
+    std::vector<std::shared_ptr<Node>> nodes; // Tablica węzłów
     Element *elems; // Tablica elementów
-    SquareMatrix hMatrix; // Macierz H globalna
-    SquareMatrix cMatrix;
+    SquareMatrix hMatrixGlobal; // Macierz H globalna
+    SquareMatrix cMatrixGlobal;
     double *pVector, *tVector;
 
     Grid(uint32_t _nNodes, uint32_t _nElems, double initTemp);
@@ -110,7 +112,7 @@ class GlobalData {
     double ambientTemp;
     double initTemp;
     unsigned int nSubstances;
-    SubstanceData *substances;
+    std::vector<std::shared_ptr<SubstanceData>> substances;
     uint32_t nNodes;
     uint32_t nElems;
     Grid *grid;

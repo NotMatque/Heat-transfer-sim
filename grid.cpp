@@ -21,15 +21,8 @@ std::ostream& operator<<(std::ostream& os, const Node& n){
     return os;
 }
 
-Element::Element() {
-    substance = nullptr;
+Element::Element(): hMatrix(4), hbcMatrix(4), cMatrix(4) {
     id = 0;
-    nodes = new Node*[4];
-    for (int i = 0; i < 4; i++)
-        nodes[i] = nullptr;
-    hMatrix = SquareMatrix(4);
-    hbcMatrix = SquareMatrix(4);
-    cMatrix = SquareMatrix(4);
     nIntegrPoints = 0;
     integrPoints = nullptr;
     integrPointWeights = nullptr;
@@ -281,23 +274,20 @@ std::ostream& operator<<(std::ostream& os, const Element& e) {
     return os;
 }
 
-Grid::Grid(uint32_t const _nNodes, uint32_t const _nElems, double const initTemp) {
+Grid::Grid(uint32_t const _nNodes, uint32_t const _nElems, double const initTemp): hMatrixGlobal(_nNodes), cMatrixGlobal(_nNodes) {
     nNodes = _nNodes;
     nElems = _nElems;
 
-    nodes = new Node[nNodes];
+    nodes.reserve(nNodes);
     elems = new Element[nElems];
     for(int i = 0; i < nElems; i++)
         elems[i].setIntergPoints(3);
-    hMatrix = SquareMatrix(nNodes);
-    cMatrix = SquareMatrix(nNodes);
     pVector = new double[nNodes];
     tVector = new double[nNodes];
     for(int i = 0; i < nNodes; i++)
         tVector[i] = initTemp;
 }
 Grid::~Grid() {
-    delete[] nodes;
     delete[] elems;
 }
 void Grid::calculateHMatrixGlobal() const {
@@ -307,7 +297,7 @@ void Grid::calculateHMatrixGlobal() const {
 
         for(int j = 0; j < 4; j++)
             for(int k = 0; k < 4; k++)
-                hMatrix(elems[i].nodes[j]->id, elems[i].nodes[k]->id) += elems[i].hMatrix(j, k) + elems[i].hbcMatrix(j, k);
+                hMatrixGlobal(elems[i].nodes[j]->id, elems[i].nodes[k]->id) += elems[i].hMatrix(j, k) + elems[i].hbcMatrix(j, k);
     }
 }
 void Grid::calculatePVectorGlobal(double ambientTemp) const {
@@ -324,7 +314,7 @@ void Grid::calculateCMatrixGlobal() const {
 
         for(int j = 0; j < 4; j++)
             for(int k = 0; k < 4; k++)
-                cMatrix(elems[i].nodes[j]->id, elems[i].nodes[k]->id) += elems[i].cMatrix(j, k);
+                cMatrixGlobal(elems[i].nodes[j]->id, elems[i].nodes[k]->id) += elems[i].cMatrix(j, k);
     }
 }
 void Grid::calculateTVectorTransient(double stepTime) {
@@ -332,11 +322,11 @@ void Grid::calculateTVectorTransient(double stepTime) {
     SquareMatrix hTransientMatrix(nNodes);
     for(size_t i = 0; i < hTransientMatrix.getSize(); i++)
         for(size_t j = 0; j < hTransientMatrix.getSize(); j++)
-            hTransientMatrix(i, j) = hMatrix(i, j) + cMatrix(i, j) / stepTime;
+            hTransientMatrix(i, j) = hMatrixGlobal(i, j) + cMatrixGlobal(i, j) / stepTime;
 
     for(int i = 0; i < nNodes; i++) {
         for(int j = 0; j < nNodes; j++)
-            pVector[i] += cMatrix(i, j) / stepTime * tVector[j];
+            pVector[i] += cMatrixGlobal(i, j) / stepTime * tVector[j];
     }
 
     // Preparation for Crout (not implemented)
@@ -371,9 +361,9 @@ void Grid::calculateTVectorStaticState() const{
         int iMax = 0; // TODO: Gauss-Crout or better
 
         for(int j = i + 1; j < nNodes; j++) {
-            double ratio = hMatrix(j,i) / hMatrix(i,i);
+            double ratio = hMatrixGlobal(j,i) / hMatrixGlobal(i,i);
             for(int k = i; k < nNodes; k++)
-                hMatrix(j,k) -= ratio * hMatrix(i,k);
+                hMatrixGlobal(j,k) -= ratio * hMatrixGlobal(i,k);
             pVector[j] -= ratio * pVector[i];
         }
     }
@@ -382,14 +372,14 @@ void Grid::calculateTVectorStaticState() const{
     for(int i = (int)nNodes - 1; i >= 0; i--) {
         tVector[i] = pVector[i];
         for(int j = i + 1; j < nNodes; j++)
-            tVector[i] -= hMatrix(i,j) * tVector[j];
-        tVector[i] /= hMatrix(i,i);
+            tVector[i] -= hMatrixGlobal(i,j) * tVector[j];
+        tVector[i] /= hMatrixGlobal(i,i);
     }
 }
 
 void Grid::clearAllCalculations() {
-    hMatrix = SquareMatrix(nNodes);
-    cMatrix = SquareMatrix(nNodes);
+    hMatrixGlobal = SquareMatrix(nNodes);
+    cMatrixGlobal = SquareMatrix(nNodes);
     for(int i = 0; i < nNodes; i++)
         pVector[i] = 0;
 }
@@ -407,7 +397,6 @@ GlobalData::GlobalData() {
     ambientTemp = 0.0;
     initTemp = 0.0;
     nSubstances = 0;
-    substances = nullptr;
     nNodes = 0;
     nElems = 0;
     grid = nullptr;
@@ -451,7 +440,7 @@ void GlobalData::getSimParamsFromFile(const std::string &path) {
     simParamsFile >> ignoreMe >> readData;
     checkDataTag(&simParamsFile, ignoreMe, "SubstancesNumber");
     this->nSubstances = stoi(readData);
-    substances = new SubstanceData[stoi(readData)];
+    substances.reserve(nSubstances);
 
     simParamsFile >> ignoreMe >> readData;
     checkDataTag(&simParamsFile, ignoreMe, "NodesNumber");
@@ -471,28 +460,28 @@ void GlobalData::getSubstanceDataFromFile(unsigned int substanceNumber, const st
         std::cerr << "ERROR: Could not open file " << path << std::endl;
         exit(1);
     }
-
+    substances.push_back(std::make_shared<SubstanceData>());
     std::string ignoreMe, readData;
 
     substanceFile >> ignoreMe >> readData;
     checkDataTag(&substanceFile, ignoreMe, "Name");
-    substances[substanceNumber - 1].name = readData;
+    substances[substanceNumber - 1]->name = readData;
 
     substanceFile >> ignoreMe >> readData;
     checkDataTag(&substanceFile, ignoreMe, "Conductivity");
-    substances[substanceNumber - 1].conductivity = stod(readData);
+    substances[substanceNumber - 1]->conductivity = stod(readData);
 
     substanceFile >> ignoreMe >> readData;
     checkDataTag(&substanceFile, ignoreMe, "Alpha");
-    substances[substanceNumber - 1].alpha = stod(readData);
+    substances[substanceNumber - 1]->alpha = stod(readData);
 
     substanceFile >> ignoreMe >> readData;
     checkDataTag(&substanceFile, ignoreMe, "Density");
-    substances[substanceNumber - 1].density = stod(readData);
+    substances[substanceNumber - 1]->density = stod(readData);
 
     substanceFile >> ignoreMe >> readData;
     checkDataTag(&substanceFile, ignoreMe, "SpecificHeat");
-    substances[substanceNumber - 1].specificHeat = stod(readData);
+    substances[substanceNumber - 1]->specificHeat = stod(readData);
 
     substanceFile.close();
 }
@@ -513,12 +502,18 @@ void GlobalData::getNodesFromFile(const std::string &path) {
     nodesFile >> ignoreMe >> ignoreMe >> ignoreMe >> ignoreMe;
     for(unsigned int i = 0; i < nNodes; i++) {
         nodesFile >> ignoreMe >> readX >> readY >> readIsOnEdge;
-        grid->nodes[i].id = i;
+        Node temp;
+        temp.id = i;
+        //grid->nodes[i].id = i;
         readX.pop_back();
-        grid->nodes[i].x = stod(readX);
+        temp.x = stod(readX);
+        //grid->nodes[i].x = stod(readX);
         readY.pop_back();
-        grid->nodes[i].y = stod(readY);
-        grid->nodes[i].isOnEdge = stoi(readIsOnEdge);
+        temp.y = stod(readY);
+        //grid->nodes[i].y = stod(readY);
+        temp.isOnEdge = stod(readIsOnEdge);
+        //grid->nodes[i].isOnEdge = stoi(readIsOnEdge);
+        grid->nodes.push_back(std::make_shared<Node>(temp));
     }
 
     nodesFile.close();
@@ -542,14 +537,14 @@ void GlobalData::getElementsFromFile(const std::string &path) {
         elementsFile >> ignoreMe >> readNode1 >> readNode2 >> readNode3 >> readNode4 >> readSubstanceNum;
         grid->elems[i].id = i;
         readNode1.pop_back();
-        grid->elems[i].nodes[0] = &grid->nodes[stoi(readNode1) - 1];
+        grid->elems[i].nodes[0] = grid->nodes[stoi(readNode1) - 1];
         readNode2.pop_back();
-        grid->elems[i].nodes[1] = &grid->nodes[stoi(readNode2) - 1];
+        grid->elems[i].nodes[1] = grid->nodes[stoi(readNode2) - 1];
         readNode3.pop_back();
-        grid->elems[i].nodes[2] = &grid->nodes[stoi(readNode3) - 1];
+        grid->elems[i].nodes[2] = grid->nodes[stoi(readNode3) - 1];
         readNode4.pop_back();
-        grid->elems[i].nodes[3] = &grid->nodes[stoi(readNode4) - 1];
-        grid->elems[i].substance = &substances[stoi(readSubstanceNum) - 1];
+        grid->elems[i].nodes[3] = grid->nodes[stoi(readNode4) - 1];
+        grid->elems[i].substance = substances[stoi(readSubstanceNum) - 1];
     }
     elementsFile.close();
 }
