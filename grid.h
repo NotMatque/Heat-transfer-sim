@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iomanip>
 #include <vector>
+#include <sstream>
 
 #include "matrix.h"
 #include "substanceData.h"
@@ -125,7 +126,7 @@ public:
 
     void getAllDataFromDir(const std::string &directory);
     void getSimParamsFromFile(const std::string &path);
-    void getSubstanceDataFromFile(unsigned int, const std::string &path);
+    void getSubstancesFromFile(const std::string &path);
     void getNodesFromFile(const std::string &path);
     void getElementsFromFile(const std::string &path);
 

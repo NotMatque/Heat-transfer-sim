@@ -404,9 +404,7 @@ GlobalData::GlobalData() {
 
 void GlobalData::getAllDataFromDir(const std::string &directory) {
     getSimParamsFromFile(directory + "sim_params.txt");
-
-    for(unsigned int i = 1; i <= nSubstances; i++)
-        getSubstanceDataFromFile(i, directory + "substance_" + std::to_string(i) + ".txt");
+    getSubstancesFromFile(directory + "substances.csv");
     getNodesFromFile(directory + "nodes.csv");
     getElementsFromFile(directory + "elements.csv");
 }
@@ -452,7 +450,7 @@ void GlobalData::getSimParamsFromFile(const std::string &path) {
 
     simParamsFile.close();
 }
-void GlobalData::getSubstanceDataFromFile(unsigned int substanceNumber, const std::string &path) {
+void GlobalData::getSubstancesFromFile(const std::string &path) {
     std:std::fstream substanceFile;
     substanceFile.open(path);
 
@@ -460,28 +458,31 @@ void GlobalData::getSubstanceDataFromFile(unsigned int substanceNumber, const st
         std::cerr << "ERROR: Could not open file " << path << std::endl;
         exit(1);
     }
-    substances.push_back(std::make_shared<SubstanceData>());
-    std::string ignoreMe, readData;
 
-    substanceFile >> ignoreMe >> readData;
-    checkDataTag(&substanceFile, ignoreMe, "Name");
-    substances[substanceNumber - 1]->name = readData;
+    std::string line, tempString;
+    // Header line:
+    std::getline(substanceFile, line);
 
-    substanceFile >> ignoreMe >> readData;
-    checkDataTag(&substanceFile, ignoreMe, "Conductivity");
-    substances[substanceNumber - 1]->conductivity = stod(readData);
+    while (std::getline(substanceFile, line)) {
+        SubstanceData tempSupstance;
+        std::stringstream ss(line);
 
-    substanceFile >> ignoreMe >> readData;
-    checkDataTag(&substanceFile, ignoreMe, "Alpha");
-    substances[substanceNumber - 1]->alpha = stod(readData);
+        std::getline(ss, tempSupstance.name, ',');
 
-    substanceFile >> ignoreMe >> readData;
-    checkDataTag(&substanceFile, ignoreMe, "Density");
-    substances[substanceNumber - 1]->density = stod(readData);
+        std::getline(ss, tempString, ',');
+        tempSupstance.conductivity = stod(tempString);
 
-    substanceFile >> ignoreMe >> readData;
-    checkDataTag(&substanceFile, ignoreMe, "SpecificHeat");
-    substances[substanceNumber - 1]->specificHeat = stod(readData);
+        std::getline(ss, tempString, ',');
+        tempSupstance.alpha = stod(tempString);
+
+        std::getline(ss, tempString, ',');
+        tempSupstance.density = stod(tempString);
+
+        std::getline(ss, tempString, ',');
+        tempSupstance.specificHeat = stod(tempString);
+
+        substances.push_back(std::make_shared<SubstanceData>(tempSupstance));
+    }
 
     substanceFile.close();
 }
