@@ -512,7 +512,7 @@ void GlobalData::getNodesFromFile(const std::string &path) {
         readY.pop_back();
         temp.y = stod(readY);
         //grid->nodes[i].y = stod(readY);
-        temp.isOnEdge = stod(readIsOnEdge);
+        temp.isOnEdge = stoi(readIsOnEdge);
         //grid->nodes[i].isOnEdge = stoi(readIsOnEdge);
         grid->nodes.push_back(std::make_shared<Node>(temp));
     }
@@ -558,13 +558,13 @@ void GlobalData::checkIfDataIsLoaded() const {
 
 // Wypisuje do konsoli wczytane dane
 void GlobalData::printData() const {
-    std::cout << "\nGlobal Data:\nSimulation time: " << simTime << " [s]\n";
+    std::cout << "\n=== Global Data: ===\nSimulation time: " << simTime << " [s]\n";
     std::cout << "Simulation step time: " << simStepTime << " [s]\n";
     std::cout << "Ambient temperature: " << ambientTemp << "[C]\n";
     std::cout << "Initial temperature: " << initTemp << " [C]\n";
-    std::cout << "Substances: " << nSubstances << "\n";
+    std::cout << "\nSubstances: " << nSubstances << "\n";
     for(unsigned int i = 0; i < nSubstances; i++) {
-        std::cout << substances[i] << "\n";
+        std::cout << *substances[i] << "\n";
     }
 
     std::cout << "Number of nodes: " << nNodes << "\n";
@@ -572,13 +572,13 @@ void GlobalData::printData() const {
 }
 // Wypisuje koordynaty wszystkich węzłów siatki MES
 void GlobalData::printGridNodes() const{
-    std::cout << "Nodes:\n";
+    std::cout << "\nNodes:\n";
     for(uint32_t i = 0; i < nNodes; i++)
-        std::cout << grid->nodes[i] << "\n";
+        std::cout << *grid->nodes[i] << "\n";
 }
 // Wypisuje wszystkie dane elementów siatki MES
 void GlobalData::printGridElems() const{
-    std::cout << "Elements:\n";
+    std::cout << "\nElements:\n";
     for(uint32_t i = 0; i < nElems; i++)
         std::cout << grid->elems[i] << "\n";
 }
