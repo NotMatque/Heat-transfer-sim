@@ -1,14 +1,14 @@
 cmake_minimum_required(VERSION 3.29)
-project(untitled)
+project(Heat_transfer_sim)
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_executable(untitled main.cpp
-        grid.cpp
-        grid.h
-        quadGauss.cpp
-        quadGauss.h
-        matrix.cpp
-        matrix.h
-        substanceData.h
+add_executable(Heat_transfer_sim Src/main.cpp
+        Src/grid.cpp
+        Src/grid.h
+        Src/quadGauss.cpp
+        Src/quadGauss.h
+        Src/matrix.cpp
+        Src/matrix.h
+        Src/substanceData.h
 )
