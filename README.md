@@ -3,7 +3,7 @@
 **First version** of this program was made during college course "_Finite element method_"
 at _AGH University of Krakow_.
 
-Since then, Since then, I have worked on it independently,
+Since then, I have worked on it independently,
 driven by my fascination with finite element analysis,
 and I have come to see it as a neat little passion project 🌻 of mine.
 
@@ -47,7 +47,7 @@ In this file the program keeps all the data about grid nodes like:
 In this file the program keeps all the data about square FEM elements:
 
 ```
-<element number>, <no of upper right node>, <no of upper left node>, <no of lower left node>, <no of lower right node>, <id of substance the element is made of>
+<element number>, <no. of upper right node>, <no. of upper left node>, <no. of lower left node>, <no. of lower right node>, <id of substance the element is made of>
 ```
 
 Now, with proper data the program outputs the calculations in each step in [Results](Results) directory 😉
